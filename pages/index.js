@@ -1,115 +1,152 @@
-import Image from "next/image";
-import localFont from "next/font/local";
+// pages/index.js
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+export default function WorkshopPreferences() {
+  const [name, setName] = useState('');
+  const [preferences, setPreferences] = useState({
+    first: '',
+    second: '',
+    third: '',
+  });
+  const [workshops, setWorkshops] = useState([]);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-export default function Home() {
+  // Workshops vom Server abrufen
+  useEffect(() => {
+    const fetchWorkshops = async () => {
+      try {
+        const response = await axios.get('/api/workshops/list');
+        setWorkshops(response.data);
+      } catch (error) {
+        console.error('Fehler beim Abrufen der Workshops:', error);
+        setError('Fehler beim Laden der Workshops.');
+      }
+    };
+
+    fetchWorkshops();
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (preferences.first === preferences.second || preferences.first === preferences.third || preferences.second === preferences.third) {
+      setError('Jeder Wunsch muss verschieden sein.');
+      setSuccess('');
+      return;
+    }
+
+    try {
+      await axios.post('/api/preferences', {
+        name: name,
+        preferences,
+      });
+      setSuccess('Wünsche erfolgreich übertragen!');
+      setError('');
+      //setName('');
+      //setPreferences({ first: '', second: '', third: '' });
+    } catch (error) {
+      setError('Fehler beim Senden der Wünsche.');
+      setSuccess('');
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setPreferences((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const getFilteredWorkshops = (currentSelection) => {
+    return workshops.filter(
+      (workshop) => !Object.values(preferences).includes(workshop.title) || workshop.title === currentSelection
+    );
+  };
+
   return (
-    <div
-      className={`${geistSans.variable} ${geistMono.variable} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]`}
-    >
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              pages/index.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-lg">
+        <h2 className="text-2xl font-bold mb-6 text-center">Workshop Auswahl</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex flex-col space-y-2">
+            <label htmlFor="name" className="text-gray-700 font-medium">Name</label>
+            <input
+              type="text"
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="p-2 border rounded-md w-full"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          </div>
+
+          <div className="flex flex-col space-y-2">
+            <label htmlFor="firstPreference" className="text-gray-700 font-medium">Erster Wunsch</label>
+            <select
+              id="firstPreference"
+              name="first"
+              value={preferences.first}
+              onChange={handleChange}
+              required
+              className="p-2 border rounded-md w-full"
+            >
+              <option value="">Ersten Wunsch auswählen</option>
+              {getFilteredWorkshops(preferences.first).map((workshop) => (
+                <option key={workshop.id} value={workshop.title}>
+                  {workshop.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col space-y-2">
+            <label htmlFor="secondPreference" className="text-gray-700 font-medium">Zweiter Wunsch</label>
+            <select
+              id="secondPreference"
+              name="second"
+              value={preferences.second}
+              onChange={handleChange}
+              required
+              className="p-2 border rounded-md w-full"
+            >
+              <option value="">Zweiten Wunsch auswählen</option>
+              {getFilteredWorkshops(preferences.second).map((workshop) => (
+                <option key={workshop.id} value={workshop.title}>
+                  {workshop.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col space-y-2">
+            <label htmlFor="thirdPreference" className="text-gray-700 font-medium">Dritter Wunsch</label>
+            <select
+              id="thirdPreference"
+              name="third"
+              value={preferences.third}
+              onChange={handleChange}
+              required
+              className="p-2 border rounded-md w-full"
+            >
+              <option value="">Dritten Wunsch auswählen</option>
+              {getFilteredWorkshops(preferences.third).map((workshop) => (
+                <option key={workshop.id} value={workshop.title}>
+                  {workshop.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 transition duration-300"
           >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            Auswahl abschicken
+          </button>
+          {error && <p className="text-red-500 mt-4">{error}</p>}
+          {success && <p className="text-green-500 mt-4">{success}</p>}
+        </form>
+      </div>
     </div>
   );
 }
