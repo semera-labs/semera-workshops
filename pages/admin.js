@@ -8,6 +8,7 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
+import Head from 'next/head';
 
 export default function AdminView() {
     const [submissions, setSubmissions] = useState([]);
@@ -151,90 +152,96 @@ export default function AdminView() {
     ];
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 w-full">
-            <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-6xl">
-                <h2 className="text-2xl font-bold mb-6 text-center">Admin Panel</h2>
-                <div className="flex mb-4">
-                    <button
-                        className="p-2 hover:bg-gray-200"
-                        onClick={exportData}
-                    >
-                        <div className="flex items-center flex-col">
-                            <FileDownloadIcon fontSize='large' />
-                            <span>Preference</span>
-                            <span>Export</span>
-                        </div>
-                    </button>
-                    <label className="p-2 hover:bg-gray-200 cursor-pointer">
-                        <div className="flex items-center flex-col">
-                            <FileUploadIcon fontSize='large' />
-                            <span>Preference</span>
-                            <span>Import</span>
-                        </div>
-                        <input
-                            type="file"
-                            accept=".json"
-                            onChange={importData}
-                            style={{ display: 'none' }}
-                        />
-                    </label>
-                    <div className="border-l border-gray-300 h-fill mx-2"></div>
-                    <button
-                        className="p-2 hover:bg-gray-200 "
-                        onClick={exportWorkshops}
-                    >
-                        <div className="flex items-center flex-col">
-                            <FileDownloadIcon fontSize='large' />
-                            <span>Workshop</span>
-                            <span>Export</span>
-                        </div>
-                    </button>
-                    <label className="p-2 hover:bg-gray-200 cursor-pointer">
-                        <div className="flex items-center flex-col">
-                            <FileUploadIcon fontSize='large' />
-                            <span>Workshop</span>
-                            <span>Import</span>
-                        </div>
-                        <input
-                            type="file"
-                            accept=".json"
-                            onChange={importWorkshops}
-                            style={{ display: 'none' }}
-                        />
-                    </label>
-                    <div className="border-l border-gray-300 h-fill mx-2"></div>
-                    <button
-                        className="p-2 hover:bg-gray-200"
-                        onClick={generateAllocationFile}
-                    >
-                        <div className="flex items-center flex-col">
-                            <AutoModeIcon fontSize='large' />
-                            <span>Allocate</span>
-                        </div>
-                    </button>
-                    <button
-                        className="p-2 hover:bg-gray-200"
-                        onClick={fetchSubmissions} // Trigger the refresh when clicked
-                    >
-                        <div className="flex items-center flex-col">
-                            <RefreshIcon fontSize='large' />
-                            <span>Refresh</span>
-                        </div>
-                    </button>
-                </div>
-                <div style={{ height: 600, width: '100%' }}>
-                    <DataGrid rows={submissions.map((submission) => ({
-                        id: submission.id,
-                        name: submission.name,
-                        first: submission.preferences.first,
-                        second: submission.preferences.second,
-                        third: submission.preferences.third,
-                    }))}
-                        columns={columns} pageSize={5}
-                        localeText={deDE.components.MuiDataGrid.defaultProps.localeText}
-                        processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)} />
+        <>
+            <Head>
+                <title>WS-Allocate</title>
+                <link rel="icon" href="/favicon.png" />
+            </Head>
+            <div className="min-h-screen flex items-center justify-center bg-gray-100 w-full">
+                <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-6xl">
+                    <h2 className="text-2xl font-bold mb-6 text-center">Admin Panel</h2>
+                    <div className="flex mb-4">
+                        <button
+                            className="p-2 hover:bg-gray-200"
+                            onClick={exportData}
+                        >
+                            <div className="flex items-center flex-col">
+                                <FileDownloadIcon fontSize='large' />
+                                <span>Preference</span>
+                                <span>Export</span>
+                            </div>
+                        </button>
+                        <label className="p-2 hover:bg-gray-200 cursor-pointer">
+                            <div className="flex items-center flex-col">
+                                <FileUploadIcon fontSize='large' />
+                                <span>Preference</span>
+                                <span>Import</span>
+                            </div>
+                            <input
+                                type="file"
+                                accept=".json"
+                                onChange={importData}
+                                style={{ display: 'none' }}
+                            />
+                        </label>
+                        <div className="border-l border-gray-300 h-fill mx-2"></div>
+                        <button
+                            className="p-2 hover:bg-gray-200 "
+                            onClick={exportWorkshops}
+                        >
+                            <div className="flex items-center flex-col">
+                                <FileDownloadIcon fontSize='large' />
+                                <span>Workshop</span>
+                                <span>Export</span>
+                            </div>
+                        </button>
+                        <label className="p-2 hover:bg-gray-200 cursor-pointer">
+                            <div className="flex items-center flex-col">
+                                <FileUploadIcon fontSize='large' />
+                                <span>Workshop</span>
+                                <span>Import</span>
+                            </div>
+                            <input
+                                type="file"
+                                accept=".json"
+                                onChange={importWorkshops}
+                                style={{ display: 'none' }}
+                            />
+                        </label>
+                        <div className="border-l border-gray-300 h-fill mx-2"></div>
+                        <button
+                            className="p-2 hover:bg-gray-200"
+                            onClick={generateAllocationFile}
+                        >
+                            <div className="flex items-center flex-col">
+                                <AutoModeIcon fontSize='large' />
+                                <span>Allocate</span>
+                            </div>
+                        </button>
+                        <button
+                            className="p-2 hover:bg-gray-200"
+                            onClick={fetchSubmissions} // Trigger the refresh when clicked
+                        >
+                            <div className="flex items-center flex-col">
+                                <RefreshIcon fontSize='large' />
+                                <span>Refresh</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div style={{ height: 600, width: '100%' }}>
+                        <DataGrid rows={submissions.map((submission) => ({
+                            id: submission.id,
+                            name: submission.name,
+                            first: submission.preferences.first,
+                            second: submission.preferences.second,
+                            third: submission.preferences.third,
+                        }))}
+                            columns={columns} pageSize={5}
+                            localeText={deDE.components.MuiDataGrid.defaultProps.localeText}
+                            processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)} />
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 }
