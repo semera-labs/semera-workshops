@@ -13,6 +13,21 @@ import Head from 'next/head';
 export default function AdminView() {
     const [submissions, setSubmissions] = useState([]);
 
+    const [password, setPassword] = useState("");
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    // Hardcoded password
+    const correctPassword = "secret123";
+
+    // Handle password submission
+    const handleLogin = () => {
+        if (password === correctPassword) {
+            setIsAuthenticated(true);
+        } else {
+            alert("Incorrect password!");
+        }
+    };
+
     // Fetch submissions from the server
     const fetchSubmissions = async () => {
         try {
@@ -150,6 +165,64 @@ export default function AdminView() {
         { field: 'second', headerName: 'Zweite Wahl', width: 200, editable: true },
         { field: 'third', headerName: 'Dritte Wahl', width: 200, editable: true },
     ];
+
+    if (!isAuthenticated) {
+        return (
+            <div style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100vh",
+                backgroundColor: "#f4f4f4",
+                fontFamily: "Arial, sans-serif"
+            }}>
+                <div style={{
+                    backgroundColor: "#ffffff",
+                    padding: "30px",
+                    borderRadius: "10px",
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                    textAlign: "center",
+                    width: "300px"
+                }}>
+                    <h2 style={{ marginBottom: "20px", color: "#333" }}>Enter Admin Password</h2>
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter password"
+                        style={{
+                            width: "100%",
+                            padding: "10px",
+                            marginBottom: "15px",
+                            border: "1px solid #ccc",
+                            borderRadius: "5px",
+                            fontSize: "16px"
+                        }}
+                    />
+                    <button
+                        onClick={handleLogin}
+                        style={{
+                            width: "100%",
+                            padding: "10px",
+                            backgroundColor: "#007BFF",
+                            color: "white",
+                            fontSize: "16px",
+                            border: "none",
+                            borderRadius: "5px",
+                            cursor: "pointer",
+                            transition: "background 0.3s"
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#0056b3"}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = "#007BFF"}
+                    >
+                        Submit
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
 
     return (
         <>

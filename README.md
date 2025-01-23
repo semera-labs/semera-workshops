@@ -29,3 +29,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ```bash
 docker compose up --build -d
 ```
+
+
+admin
+gkundergroundpass

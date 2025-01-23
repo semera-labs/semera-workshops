@@ -1,6 +1,15 @@
-version: '3'
 services:
-  app:
+  nextjs:
     build: .
+    container_name: nextjs_app
+    restart: always
     ports:
-      - "3000:3000"
+      - "3000:3000" # Make sure it's mapped correctly
+    environment:
+      - HOST=0.0.0.0 # Allow external connections
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
