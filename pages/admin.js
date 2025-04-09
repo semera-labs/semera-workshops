@@ -8,13 +8,28 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
+import QrCodeIcon from '@mui/icons-material/QrCode';
 import Head from 'next/head';
+import QRCode from 'qrcode';
 
 export default function AdminView() {
     const [submissions, setSubmissions] = useState([]);
 
     const [password, setPassword] = useState("");
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    const [localIp, setLocalIp] = useState('');
+
+    const [qrCode, setQrCode] = useState('');
+
+    const [displayQrCode, setDisplayQrCode] = useState(false);
+
+    const generateQrCode = async () => {
+        setQrCode(await QRCode.toDataURL(`http://${localIp}:3000`, {
+            errorCorrectionLevel: 'H', type: 'image/jpeg',
+            quality: 1,
+        }));
+    };
 
     // Hardcoded password
     const correctPassword = "secret123";
@@ -63,6 +78,10 @@ export default function AdminView() {
             console.error('Fehler beim Exportieren der Workshops:', error);
             alert('Fehler beim Exportieren der Workshops.');
         }
+    };
+
+    const displayQRCode = () => {
+        setDisplayQrCode((prev) => !prev);
     };
 
     const importData = (event) => {
@@ -227,7 +246,7 @@ export default function AdminView() {
     return (
         <>
             <Head>
-                <title>WS-Allocate</title>
+                <title>WS-Allocate Admin Panel</title>
                 <link rel="icon" href="/favicon.png" />
             </Head>
             <div className="min-h-screen flex items-center justify-center bg-gray-100 w-full">
@@ -300,18 +319,63 @@ export default function AdminView() {
                                 <span>Refresh</span>
                             </div>
                         </button>
+                        <div className="border-l border-gray-300 h-fill mx-2"></div>
+                        <button
+                            className="p-2 hover:bg-gray-200"
+                            onClick={displayQRCode}
+                        >
+                            <div className="flex items-center flex-col">
+                                <QrCodeIcon fontSize='large' />
+                                <span>QRCode</span>
+                            </div>
+                        </button>
                     </div>
                     <div style={{ height: 600, width: '100%' }}>
-                        <DataGrid rows={submissions.map((submission) => ({
-                            id: submission.id,
-                            name: submission.name,
-                            first: submission.preferences.first,
-                            second: submission.preferences.second,
-                            third: submission.preferences.third,
-                        }))}
-                            columns={columns} pageSize={5}
-                            localeText={deDE.components.MuiDataGrid.defaultProps.localeText}
-                            processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)} />
+                        {displayQrCode ?
+                            <div>
+                                <input
+                                    value={localIp}
+                                    onChange={(e) => setLocalIp(e.target.value)}
+                                    placeholder="Enter IP"
+                                    style={{
+                                        width: "100%",
+                                        padding: "10px",
+                                        marginBottom: "15px",
+                                        border: "1px solid #ccc",
+                                        borderRadius: "5px",
+                                        fontSize: "16px"
+                                    }}
+                                />
+                                <button
+                                    onClick={generateQrCode}
+                                    style={{
+                                        width: "100%",
+                                        padding: "10px",
+                                        backgroundColor: "#007BFF",
+                                        color: "white",
+                                        fontSize: "16px",
+                                        border: "none",
+                                        borderRadius: "5px",
+                                        cursor: "pointer",
+                                        transition: "background 0.3s"
+                                    }}
+                                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#0056b3"}
+                                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = "#007BFF"}
+                                >Generate QR Code</button>
+                                {qrCode && <img src={qrCode} alt="QR Code" style={{ width: '400px' }} />}
+                            </div>
+                            :
+                            <DataGrid rows={submissions.map((submission) => ({
+                                id: submission.id,
+                                name: submission.name,
+                                first: submission.preferences.first,
+                                second: submission.preferences.second,
+                                third: submission.preferences.third,
+                            }))}
+                                columns={columns} pageSize={5}
+                                localeText={deDE.components.MuiDataGrid.defaultProps.localeText}
+                                processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)} />}
+
                     </div>
                 </div>
             </div>
