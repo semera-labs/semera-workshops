@@ -1,20 +1,44 @@
 [
     {
         "id": 1,
-        "title": "Workshop 1",
+        "title": "Jugger",
+        "maxParticipants": 12,
+        "minParticipants": 8
+    },
+    {
+        "id": 2,
+        "title": "Fußball",
+        "maxParticipants": 15,
+        "minParticipants": 7
+    },
+    {
+        "id": 3,
+        "title": "Karten basteln",
         "maxParticipants": 10,
         "minParticipants": 1
     },
     {
-        "id": 2,
-        "title": "Workshop 2",
+        "id": 4,
+        "title": "Stofftaschen bemalen",
         "maxParticipants": 15,
-        "minParticipants": 10
+        "minParticipants": 5
     },
     {
-        "id": 3,
-        "title": "Workshop 3",
-        "maxParticipants": 12,
-        "minParticipants": 6
+        "id": 5,
+        "title": "Wikinger-Schach",
+        "maxParticipants": 8,
+        "minParticipants": 4
+    },
+    {
+        "id": 6,
+        "title": "Brettspiele",
+        "maxParticipants": 14,
+        "minParticipants": 1
+    },
+    {
+        "id": 7,
+        "title": "Lego",
+        "maxParticipants": 20,
+        "minParticipants": 1
     }
 ]
