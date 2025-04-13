@@ -10,6 +10,7 @@ const Workshop = sequelize.define('Workshop', {
     title: DataTypes.STRING,
     maxParticipants: DataTypes.INTEGER,
     minParticipants: DataTypes.INTEGER,
+    staff: DataTypes.STRING,
 });
 
 module.exports = Workshop;

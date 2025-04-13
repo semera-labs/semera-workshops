@@ -3,42 +3,42 @@
         "id": 1,
         "title": "Jugger",
         "maxParticipants": 12,
-        "minParticipants": 8
+        "minParticipants": 8,
+        "staff": "Kerstin"
     },
     {
         "id": 2,
-        "title": "Fußball",
-        "maxParticipants": 15,
-        "minParticipants": 7
+        "title": "Miniaturen bemalen",
+        "maxParticipants": 9,
+        "minParticipants": 1,
+        "staff": "Tobi"
     },
     {
         "id": 3,
-        "title": "Karten basteln",
+        "title": "Outdoor/ Survival",
         "maxParticipants": 10,
-        "minParticipants": 1
+        "minParticipants": 2,
+        "staff": "Jannis, Timo"
     },
     {
         "id": 4,
-        "title": "Stofftaschen bemalen",
-        "maxParticipants": 15,
-        "minParticipants": 5
+        "title": "Perlen Armbänder",
+        "maxParticipants": 8,
+        "minParticipants": 1,
+        "staff": "Lena"
     },
     {
         "id": 5,
-        "title": "Wikinger-Schach",
-        "maxParticipants": 8,
-        "minParticipants": 4
+        "title": "Aktives Entspannen",
+        "maxParticipants": 40,
+        "minParticipants": 1,
+        "staff": "Jonny, Daniel"
     },
     {
         "id": 6,
-        "title": "Brettspiele",
-        "maxParticipants": 14,
-        "minParticipants": 1
-    },
-    {
-        "id": 7,
-        "title": "Lego",
-        "maxParticipants": 20,
-        "minParticipants": 1
+        "title": "Paracord",
+        "maxParticipants": 15,
+        "minParticipants": 5,
+        "staff": "Lisia, Kaya"
     }
 ]

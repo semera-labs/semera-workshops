@@ -61,6 +61,7 @@ export default function WorkshopPreferences() {
     } catch (error) {
       if (error.response?.status === 409) {
         setError('Du hast deine Wünsche bereits eingereicht.');
+        window.alert('Du hast deine Wünsche bereits eingereicht.');
       } else {
         setError('Fehler beim Senden der Wünsche.');
       }
