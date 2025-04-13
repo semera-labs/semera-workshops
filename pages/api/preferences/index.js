@@ -17,6 +17,17 @@ export default async function handler(req, res) {
                 return res.status(400).json({ message: 'Name and preferences are required.' });
             }
 
+            const submissions = await getAllSubmissions();
+            const alreadySubmitted = submissions.some(
+                (sub) => sub.name === newSubmission.name
+            );
+
+            if (alreadySubmitted) {
+                return res.status(409).json({
+                    message: 'Du hast deine Wünsche bereits eingereicht.',
+                });
+            }
+
             await saveSubmission(newSubmission);
 
             res.status(201).json({ message: 'Submission saved successfully.' });

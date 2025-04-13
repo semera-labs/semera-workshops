@@ -1,5 +1,5 @@
 // pages/index.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Head from 'next/head';
 
@@ -13,6 +13,7 @@ export default function WorkshopPreferences() {
   const [workshops, setWorkshops] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [windowHeight, setWindowHeight] = useState('100vh');
 
   // Workshops vom Server abrufen
   useEffect(() => {
@@ -29,6 +30,16 @@ export default function WorkshopPreferences() {
     fetchWorkshops();
   }, []);
 
+  useEffect(() => {
+    const updateHeight = () => {
+      setWindowHeight(`${window.innerHeight}px`);
+    };
+  
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -40,7 +51,7 @@ export default function WorkshopPreferences() {
 
     try {
       await axios.post('/api/preferences', {
-        name: name,
+        name: name.trim(),
         preferences,
       });
       setSuccess('Wünsche erfolgreich übertragen!');
@@ -48,7 +59,11 @@ export default function WorkshopPreferences() {
       //setName('');
       //setPreferences({ first: '', second: '', third: '' });
     } catch (error) {
-      setError('Fehler beim Senden der Wünsche.');
+      if (error.response?.status === 409) {
+        setError('Du hast deine Wünsche bereits eingereicht.');
+      } else {
+        setError('Fehler beim Senden der Wünsche.');
+      }
       setSuccess('');
     }
   };
@@ -70,7 +85,8 @@ export default function WorkshopPreferences() {
         <title>WS-Allocate</title>
         <link rel="icon" href="/favicon.png" />
       </Head>
-      <div className="h-screen flex items-center justify-center bg-gray-100">
+      <div style={{ height: windowHeight }}
+        className="flex items-center justify-center bg-gray-100">
         <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-lg">
           <h2 className="text-2xl font-bold mb-6 text-center">Workshop Auswahl</h2>
           <form onSubmit={handleSubmit} className="space-y-4">

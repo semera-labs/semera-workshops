@@ -30,6 +30,24 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 docker compose up --build -d
 ```
 
+## Run locally
+Build if necessary
+```bash
+npm run build
+```
+
+Run locally
+```bash
+npm run init-database
+npm run init-workshops
+npm run start
+```
+
+Find IP
+```bash
+ipconfig /all
+```
+
 
 admin
 gkundergroundpass
