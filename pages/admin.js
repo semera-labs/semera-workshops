@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { DataGrid } from '@mui/x-data-grid';
+import { DataGrid,GridActionsCellItem } from '@mui/x-data-grid';
 import { saveAs } from 'file-saver';
 import { deDE } from '@mui/x-data-grid/locales';
 import generateAllocationFile from '../lib/generateAllocationReport';
@@ -8,8 +8,10 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
-import QrCodeIcon from '@mui/icons-material/QrCode';
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import RuleIcon from '@mui/icons-material/Rule';
 import Head from 'next/head';
+import people from '../data/participants.json';
 
 export default function AdminView() {
     const [submissions, setSubmissions] = useState([]);
@@ -129,6 +131,19 @@ export default function AdminView() {
         }
     };
 
+    const handleDeleteClick = (id) => async () => {
+        try {
+            // Delete from server
+            await axios.delete(`/api/preferences/${id}`);
+            console.log(`Submission with ID ${id} successfully deleted from server.`);
+    
+            setSubmissions(submissions.filter((submission) => submission.id !== id));
+        } catch (error) {
+            console.error(`Fehler beim Löschen der Submission mit ID ${id}:`, error);
+            alert('Fehler beim Löschen des Eintrags auf dem Server.');
+        }
+    };    
+
     const handleCellEditCommit = async (newRow, oldRow) => {
         console.log('Edit Commit:', newRow);
         var updatedSubmission = {};
@@ -160,11 +175,55 @@ export default function AdminView() {
         return newRow;
     };
 
+    const isNameMatched = (submissionName) => {
+        return people.some((person) => {
+            const fullName = `${person.Vorname} ${person.Name}`;
+            return fullName.toLowerCase() === submissionName.toLowerCase();
+        });
+    };
+
+    const matchedCount = submissions.filter((s) =>
+        people.some((p) =>
+            `${p.Vorname} ${p.Name}`.toLowerCase() === s.name.toLowerCase()
+        )
+    ).length;
+    
+    const totalPeople = people.length; 
+    
+    const getUnmatchedNames = () => {
+        return people
+            .filter((p) =>
+                !submissions.some(
+                    (s) =>
+                        `${p.Vorname} ${p.Name}`.toLowerCase() === s.name.toLowerCase()
+                )
+            )
+            .map((p) => `${p.Vorname} ${p.Name}`);
+    };    
+
     const columns = [
         { field: 'name', headerName: 'Name', width: 300, editable: true },
         { field: 'first', headerName: 'Erste Wahl', width: 200, editable: true },
         { field: 'second', headerName: 'Zweite Wahl', width: 200, editable: true },
         { field: 'third', headerName: 'Dritte Wahl', width: 200, editable: true },
+        {
+            field: 'actions',
+            type: 'actions',
+            headerName: 'Actions',
+            width: 100,
+            cellClassName: 'actions',
+            getActions: ({ id }) => {
+              return [
+                <GridActionsCellItem
+                  key={"id1"}
+                  icon={<DeleteIcon />}
+                  label="Delete"
+                  onClick={handleDeleteClick(id)}
+                  color="inherit"
+                />,
+              ];
+            },
+          },
     ];
 
     if (!isAuthenticated) {
@@ -187,6 +246,10 @@ export default function AdminView() {
                     width: "300px"
                 }}>
                     <h2 style={{ marginBottom: "20px", color: "#333" }}>Enter Admin Password</h2>
+                    <form onSubmit={(e) => {
+                    e.preventDefault();
+                    handleLogin();
+                }}>
                     <input
                         type="password"
                         value={password}
@@ -202,7 +265,7 @@ export default function AdminView() {
                         }}
                     />
                     <button
-                        onClick={handleLogin}
+                        type="submit"
                         style={{
                             width: "100%",
                             padding: "10px",
@@ -219,6 +282,7 @@ export default function AdminView() {
                     >
                         Submit
                     </button>
+                </form>
                 </div>
             </div>
         );
@@ -231,25 +295,24 @@ export default function AdminView() {
                 <title>WS-Allocate Admin Panel</title>
                 <link rel="icon" href="/favicon.png" />
             </Head>
-            <div className="min-h-screen flex items-center justify-center bg-gray-100 w-full">
+            <div className="min-h-screen max-h-screen flex items-center justify-center bg-gray-100 w-full">
                 <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-6xl">
                     <h2 className="text-2xl font-bold mb-6 text-center">Admin Panel</h2>
-                    <div className="flex mb-4">
+                    <div className="flex mb-4 justify-between items-end">
+                        <div className='flex'>
                         <button
                             className="p-2 hover:bg-gray-200"
                             onClick={exportData}
                         >
-                            <div className="flex items-center flex-col">
-                                <FileDownloadIcon fontSize='large' />
-                                <span>Preference</span>
-                                <span>Export</span>
+                            <div className="flex items-center flex-col text-sm">
+                                <FileDownloadIcon fontSize='small' />
+                                <span>Preference Export</span>
                             </div>
                         </button>
                         <label className="p-2 hover:bg-gray-200 cursor-pointer">
-                            <div className="flex items-center flex-col">
-                                <FileUploadIcon fontSize='large' />
-                                <span>Preference</span>
-                                <span>Import</span>
+                            <div className="flex items-center flex-col text-sm">
+                                <FileUploadIcon fontSize='small' />
+                                <span>Preference Import</span>
                             </div>
                             <input
                                 type="file"
@@ -263,17 +326,15 @@ export default function AdminView() {
                             className="p-2 hover:bg-gray-200 "
                             onClick={exportWorkshops}
                         >
-                            <div className="flex items-center flex-col">
-                                <FileDownloadIcon fontSize='large' />
-                                <span>Workshop</span>
-                                <span>Export</span>
+                            <div className="flex items-center flex-col text-sm">
+                                <FileDownloadIcon fontSize='small' />
+                                <span>Workshop Export</span>
                             </div>
                         </button>
                         <label className="p-2 hover:bg-gray-200 cursor-pointer">
-                            <div className="flex items-center flex-col">
-                                <FileUploadIcon fontSize='large' />
-                                <span>Workshop</span>
-                                <span>Import</span>
+                            <div className="flex items-center flex-col text-sm">
+                                <FileUploadIcon fontSize='small' />
+                                <span>Workshop Import</span>
                             </div>
                             <input
                                 type="file"
@@ -287,8 +348,8 @@ export default function AdminView() {
                             className="p-2 hover:bg-gray-200"
                             onClick={generateAllocationFile}
                         >
-                            <div className="flex items-center flex-col">
-                                <AutoModeIcon fontSize='large' />
+                            <div className="flex items-center flex-col text-sm">
+                                <AutoModeIcon fontSize='small' />
                                 <span>Allocate</span>
                             </div>
                         </button>
@@ -296,23 +357,50 @@ export default function AdminView() {
                             className="p-2 hover:bg-gray-200"
                             onClick={fetchSubmissions} // Trigger the refresh when clicked
                         >
-                            <div className="flex items-center flex-col">
-                                <RefreshIcon fontSize='large' />
+                            <div className="flex items-center flex-col text-sm">
+                                <RefreshIcon fontSize='small' />
                                 <span>Refresh</span>
                             </div>
                         </button>
+                        <div className="border-l border-gray-300 h-fill mx-2"></div>
+                        <button
+                            className="p-2 hover:bg-gray-200"
+                            onClick={() => {
+                                const missing = getUnmatchedNames();
+                                if (missing.length === 0) {
+                                    alert('✅ All names are matched!');
+                                } else {
+                                    alert(`❌ Missing names:\n\n${missing.join('\n')}`);
+                                }
+                            }}
+                        >
+                        <div className="flex items-center flex-col text-sm">
+                            <RuleIcon fontSize='small' />
+                            <span>Show Missing</span>
+                        </div>
+                        </button>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                            <strong>Matched:</strong> {matchedCount} of {totalPeople} people
+                        </div>
                     </div>
-                    <div style={{ height: 600, width: '100%' }}>
-                            <DataGrid rows={submissions.map((submission) => ({
+                    <div style={{ height: '67vh',  width: '100%' }}>
+                            <DataGrid rows={submissions.map((submission) => {
+                            const matched = isNameMatched(submission.name);
+                            return {
                                 id: submission.id,
                                 name: submission.name,
                                 first: submission.preferences.first,
                                 second: submission.preferences.second,
                                 third: submission.preferences.third,
-                            }))}
+                                matched,
+                            }})}
                                 columns={columns} pageSize={5}
                                 localeText={deDE.components.MuiDataGrid.defaultProps.localeText}
-                                processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)} />
+                                processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)}
+                                getRowClassName={(params) =>
+                                    params.row.matched ? '' : 'unmatched-row'
+                                } />
 
                     </div>
                 </div>

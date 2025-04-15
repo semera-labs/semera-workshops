@@ -1,44 +1,58 @@
 [
     {
         "id": 1,
-        "title": "Jugger",
-        "maxParticipants": 12,
-        "minParticipants": 8,
-        "staff": "Kerstin"
+        "title": "Internationales",
+        "maxParticipants": 50,
+        "minParticipants": 1,
+        "staff": "Markus"
     },
     {
         "id": 2,
-        "title": "Miniaturen bemalen",
-        "maxParticipants": 9,
+        "title": "Drogen",
+        "maxParticipants": 50,
         "minParticipants": 1,
-        "staff": "Tobi"
+        "staff": "Kerstin, Jannis"
     },
     {
         "id": 3,
-        "title": "Outdoor/ Survival",
-        "maxParticipants": 10,
-        "minParticipants": 2,
-        "staff": "Jannis, Timo"
-    },
-    {
-        "id": 4,
-        "title": "Perlen Armbänder",
-        "maxParticipants": 8,
+        "title": "Zeitmanagement",
+        "maxParticipants": 50,
         "minParticipants": 1,
         "staff": "Lena"
     },
     {
-        "id": 5,
-        "title": "Aktives Entspannen",
-        "maxParticipants": 40,
+        "id": 4,
+        "title": "Weltschmerz",
+        "maxParticipants": 50,
         "minParticipants": 1,
-        "staff": "Jonny, Daniel"
+        "staff": "Elias"
+    },
+    {
+        "id": 5,
+        "title": "Rechtsruck",
+        "maxParticipants": 15,
+        "minParticipants": 1,
+        "staff": "Timo"
     },
     {
         "id": 6,
-        "title": "Paracord",
+        "title": "Panik und Angst",
+        "maxParticipants": 12,
+        "minParticipants": 1,
+        "staff": "Sarah"
+    },
+    {
+        "id": 7,
+        "title": "Hartz IV und was es sonst noch so gibt",
         "maxParticipants": 15,
-        "minParticipants": 5,
-        "staff": "Lisia, Kaya"
+        "minParticipants": 1,
+        "staff": "Leonie, Sophie"
+    },
+    {
+        "id": 8,
+        "title": "Social Media: Chancen und Risiken",
+        "maxParticipants": 50,
+        "minParticipants": 1,
+        "staff": "Jonny"
     }
 ]
