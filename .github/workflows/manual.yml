@@ -1,0 +1,40 @@
+name: Manual PDF
+
+on:
+  push:
+    paths:
+      - "manual.md"
+
+jobs:
+  manual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build PDF
+        run: npm run build:manual
+
+      - name: Commit manual.pdf
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b update-manual-${{ github.run_id }}
+          git add manual.pdf
+          git commit -m "chore: update manual.pdf from CI" || echo "No changes"
+          git push origin update-manual-${{ github.run_id }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: update-manual-${{ github.run_id }}
+          title: "chore: update manual.pdf"
+          body: "This PR updates the manual.pdf generated from manual.md."
+          base: main
