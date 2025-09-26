@@ -1,9 +1,10 @@
 name: Build & Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
-      - "v1.0.0"
+      - "v*.*.*"
 
 jobs:
   build:
