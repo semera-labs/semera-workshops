@@ -64,14 +64,15 @@ It is designed for **offline, LAN-based use** (no internet required). Participan
 * [ ] Warn admin when allocation leaves participants unassigned.
 * [ ] Add all options to the application menu bar.
 * [ ] Implement internationalization (i18n).
-* [ ] (Add preference via Admin menu.)
-* [ ] Add menu entry for opening the submission form in a browser.
-* [ ] Show confirmation before deleting submissions. (Disable in settings)
-* [ ] Delete all Buttons
-* [ ] Secure `/admin` endpoint against LAN access (restrict to Electron app).
+* [x] Add menu entry for opening the submission form in a browser.
+* [x] (Add preference via Admin menu.) → Can be done by opening the submit form and adding an entry.
+* [x] Show confirmation before deleting submissions. (Disable in settings)
+* [ ] Delete-all Buttons
+* [x] Secure `/admin` endpoint against LAN access (restrict to Electron app).
 * [ ] Apply custom icons and consistent headers across all windows.
-* [ ] Add Bonjour/mDNS service broadcast for `.local` access.
+* [x] Add Bonjour/mDNS service broadcast for `.local` access.
 * [ ] Finalize build pipeline and product shipping process.
+* [ ] Favicon for submit page
 * [ ] Future Buddy-Feature
 
 ## 📦 Project Structure

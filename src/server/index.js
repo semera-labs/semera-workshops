@@ -6,6 +6,7 @@ import participants from "./participants/index.js";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import { initDatabase } from "../lib/initDatabase.js";
+import Bonjour from "bonjour-service";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,6 +22,17 @@ app.use("/api/preferences", preferences);
 app.use("/api/workshops", workshops);
 app.use("/api/participants", participants);
 
+app.get("/admin", (req, res, next) => {
+    const host = req.hostname;
+
+    // only allow localhost or 127.0.0.1
+    if (host === "localhost" || host === "127.0.0.1") {
+        return next();
+    }
+
+    res.status(403).send("Forbidden: /admin is only accessible locally.");
+});
+
 // Serve frontend in production
 const frontendPath = path.join(__dirname, "../../dist/renderer");
 app.use(express.static(frontendPath));
@@ -33,8 +45,20 @@ app.get(/^(?!\/api).*/, (req, res) => {
 export async function startServer(port = 3001) {
     await initDatabase();
 
-    app.listen(port, "0.0.0.0", () => {
+    app.listen(port, () => {
         console.log(`🚀 Server running at:`);
         console.log(`   Local:   http://localhost:${port}`);
+
+        // Advertise via Bonjour (mDNS)
+        const bonjour = new Bonjour.Bonjour();
+        bonjour.publish({
+            name: "Semera Workshops", // Friendly name shown in network
+            type: "http",             // Protocol (http, https, tcp, etc.)
+            port,                     // Must match your Express port
+            txt: { app: "semera" },    // Optional metadata
+            host: "semera.local"
+        });
+
+        console.log(`Bonjour service published: http://semera.local:${port}`);
     });
 }

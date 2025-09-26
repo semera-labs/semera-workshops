@@ -1,9 +1,11 @@
-import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, shell, dialog } from "electron";
 import path from "path";
 import { startServer } from "../server/index.js";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import os from "os";
+import fs from "fs";
+import { loadSettings, saveSettings } from "./settings.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -23,6 +25,7 @@ async function createWindow() {
     createAppMenu(win);
 
     if (process.env.NODE_ENV === "development") {
+        win.webContents.openDevTools();
         await win.loadURL("http://localhost:5173/admin");
     } else {
         await win.loadURL("http://localhost:3001/admin");
@@ -34,13 +37,14 @@ function createAppMenu(win) {
         {
             label: "File",
             submenu: [
-                { label: "Import Preferences", click: () => win.webContents.send("menu-import-preferences"), enabled: false },
-                { label: "Export Preferences", click: () => win.webContents.send("menu-export-preferences"), enabled: false },
+                { label: "Import Preferences", click: () => win.webContents.send("menu-import-preferences") },
+                { label: "Export Preferences", click: () => win.webContents.send("menu-export-preferences") },
                 { type: "separator" },
-                { label: "Import Workshops", click: () => win.webContents.send("menu-import-workshops"), enabled: false },
-                { label: "Export Workshops", click: () => win.webContents.send("menu-export-workshops"), enabled: false },
+                { label: "Import Workshops", click: () => win.webContents.send("menu-import-workshops") },
+                { label: "Export Workshops", click: () => win.webContents.send("menu-export-workshops") },
+                { label: "Edit Workshops", click: () => win.webContents.send("menu-edit-workshops") },
                 { type: "separator" },
-                { label: "Import Participants", click: () => win.webContents.send("menu-import-participants"), enabled: false },
+                { label: "Import Participants", click: () => win.webContents.send("menu-import-participants") },
                 { type: "separator" },
                 { label: "Exit Semera Workshops", role: "quit" },
             ]
@@ -64,15 +68,21 @@ function createAppMenu(win) {
         {
             label: "View",
             submenu: [
-                { label: "Refresh View", click: () => win.webContents.send("menu-refresh"), enabled: false },
-                { label: "Missing Matches…", click: () => win.webContents.send("menu-missing"), enabled: false },
-                { label: "QR Code…", click: () => win.webContents.send("menu-qr"), enabled: false }
+                { label: "Refresh View", click: () => win.webContents.send("menu-refresh") },
+                {
+                    label: "Open Submit Form…",
+                    click: () => {
+                        shell.openExternal("http://localhost:3001");
+                    },
+                },
+                { label: "Missing Matches…", click: () => win.webContents.send("menu-missing") },
+                { label: "QR Code…", click: () => win.webContents.send("menu-qr") }
             ]
         },
         {
             label: "Tools",
             submenu: [
-                { label: "Settings…", click: () => win.webContents.send("menu-settings"), enabled: false }
+                { label: "Settings…", click: () => win.webContents.send("menu-settings") }
             ]
         },
         {
@@ -111,6 +121,61 @@ function getLocalIp() {
 
 ipcMain.handle("get-local-ip", () => {
     return getLocalIp();
+});
+
+ipcMain.handle("settings:load", () => {
+    return loadSettings();
+});
+
+ipcMain.handle("settings:save", (event, newSettings) => {
+    return saveSettings(newSettings);
+});
+
+ipcMain.handle("import-participants-dialog", async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+        title: "Import Participants",
+        filters: [
+            { name: "Supported Files", extensions: ["json", "csv"] },
+            { name: "JSON", extensions: ["json"] },
+            { name: "CSV", extensions: ["csv"] }
+        ],
+        properties: ["openFile"]
+    });
+
+    if (canceled || filePaths.length === 0) return null;
+
+    const filePath = filePaths[0];
+    const content = fs.readFileSync(filePath, "utf-8");
+
+    return { content, path: filePath };
+});
+
+ipcMain.handle("import-preferences-dialog", async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+        title: "Import Preferences",
+        filters: [{ name: "JSON Files", extensions: ["json"] }],
+        properties: ["openFile"]
+    });
+
+    if (canceled || filePaths.length === 0) return null;
+
+    // Read the file contents
+    const content = fs.readFileSync(filePaths[0], "utf-8");
+    return { content, path: filePaths[0] };
+});
+
+ipcMain.handle("import-workshops-dialog", async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+        title: "Import Workshops",
+        filters: [{ name: "JSON Files", extensions: ["json"] }],
+        properties: ["openFile"]
+    });
+
+    if (canceled || filePaths.length === 0) return null;
+
+    // Read the file contents
+    const content = fs.readFileSync(filePaths[0], "utf-8");
+    return { content, path: filePaths[0] };
 });
 
 app.whenReady().then(() => {

@@ -15,6 +15,7 @@ import RuleIcon from '@mui/icons-material/Rule';
 import QrCodeIcon from '@mui/icons-material/QrCode';
 import QRDialog from "../../components/QRDialog";
 import API_BASE from "../../lib/api.js";
+import SettingsDialog from "../../components/SettingsDialog";
 
 export default function AdminView() {
     const [submissions, setSubmissions] = useState([]);
@@ -26,6 +27,8 @@ export default function AdminView() {
     const [people, setPeople] = useState([]);
 
     const [qrOpen, setQrOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [settings, setSettings] = useState({ warnBeforeDelete: true });
 
     // Fetch submissions from the server
     const fetchSubmissions = async () => {
@@ -49,7 +52,71 @@ export default function AdminView() {
     useEffect(() => {
         fetchSubmissions(); // Fetch data on component mount
         fetchParticipants();
+        if (window.electron?.ipcRenderer) {
+            window.electron.ipcRenderer.on("menu-settings", () => {
+                setSettingsOpen(true);
+            });
+            window.electron.ipcRenderer.on("menu-qr", () => {
+                setQrOpen(true);
+            });
+            window.electron.ipcRenderer.on("menu-edit-workshops", () => {
+                setOpenWorkshopEditor(true);
+            });
+            window.electron.ipcRenderer.on("menu-missing", () => {
+                const missing = getUnmatchedNames();
+                if (missing.length === 0) {
+                    alert('✅ All names are matched!');
+                } else {
+                    alert(`❌ Missing names:\n\n${missing.join('\n')}`);
+                }
+            });
+            window.electron.ipcRenderer.on("menu-refresh", () => {
+                fetchSubmissions();
+            });
+            window.electron.ipcRenderer.on("menu-export-preferences", () => {
+                exportData();
+            });
+            window.electron.ipcRenderer.on("menu-export-workshops", () => {
+                exportWorkshops();
+            });
+            window.electron.ipcRenderer.on("menu-import-workshops", () => {
+                importWorkshops();
+            });
+            window.electron.ipcRenderer.on("menu-import-participants", () => {
+                importParticipants();
+            });
+            window.electron.ipcRenderer.on("menu-import-preferences", () => {
+                importData();
+            });
+
+
+            window.electron.ipcRenderer.invoke("settings:load").then((loaded) => {
+                setSettings(loaded);
+            });
+
+            return () => {
+                window.electron.ipcRenderer.removeAllListeners("menu-settings");
+                window.electron.ipcRenderer.removeAllListeners("menu-qe");
+                window.electron.ipcRenderer.removeAllListeners("menu-missing");
+                window.electron.ipcRenderer.removeAllListeners("menu-edit-workshops");
+                window.electron.ipcRenderer.removeAllListeners("menu-refresh");
+                window.electron.ipcRenderer.removeAllListeners("menu-export-preferences");
+                window.electron.ipcRenderer.removeAllListeners("menu-export-workshops");
+                window.electron.ipcRenderer.removeAllListeners("menu-import-workshops");
+                window.electron.ipcRenderer.removeAllListeners("menu-import-preferences");
+                window.electron.ipcRenderer.removeAllListeners("menu-import-participants");
+            };
+        }
     }, []);
+
+    const handleSettingsClose = () => {
+        setSettingsOpen(false);
+        if (window.electron?.ipcRenderer) {
+            window.electron.ipcRenderer.invoke("settings:load").then((loaded) => {
+                setSettings(loaded);
+            });
+        }
+    };
 
 
     const exportData = async () => {
@@ -74,105 +141,91 @@ export default function AdminView() {
         }
     };
 
-    const importData = (event) => {
-        const file = event.target.files[0];
+    const importData = async () => {
+        try {
+            const result = await window.electron.ipcRenderer.invoke("import-preferences-dialog");
+            if (!result) return;
 
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const importedData = JSON.parse(e.target.result);
+            const importedData = JSON.parse(result.content);
 
-                    // Update des lokalen States
-                    setSubmissions(importedData);
+            // Update local state
+            setSubmissions(importedData);
 
-                    // Senden der importierten Daten an den Server
-                    try {
-                        const response = await axios.post(`http://${API_BASE}/api/preferences/import`, importedData);
-                        if (response.status === 200) {
-                            alert('Daten erfolgreich importiert und auf dem Server aktualisiert!');
-                        } else {
-                            alert('Fehler beim Aktualisieren der Daten auf dem Server.');
-                        }
-                    } catch (serverError) {
-                        console.error('Serverfehler beim Importieren der Daten:', serverError);
-                        alert('Fehler beim Aktualisieren der Daten auf dem Server.');
-                    }
-                } catch (error) {
-                    console.error('Fehler beim Parsen des JSON:', error);
-                    alert('Fehler beim Importieren der Daten. Bitte stellen Sie sicher, dass die Datei gültiges JSON enthält.');
-                }
-            };
-            reader.readAsText(file);
+            // Send to server
+            const response = await axios.post(`http://${API_BASE}/api/preferences/import`, importedData);
+            if (response.status === 200) {
+                alert("✅ Daten erfolgreich importiert!");
+            } else {
+                alert("❌ Fehler beim Server-Update.");
+            }
+        } catch (error) {
+            console.error("Fehler beim Import:", error);
+            alert("Fehler beim Importieren. Bitte gültige JSON-Datei auswählen.");
         }
     };
 
-    const importParticipants = (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                let imported = [];
-                if (file.name.endsWith(".json")) {
-                    const json = JSON.parse(e.target.result);
-                    imported = json.map((p) => ({
-                        Vorname: p.Vorname || p.firstname || "",
-                        Name: p.Name || p.lastname || "",
-                        Kurs: p.Kurs || "",
-                    }));
-                } else if (file.name.endsWith(".csv")) {
-                    const lines = e.target.result.split("\n").map((l) => l.trim()).filter(Boolean);
-                    imported = lines.map((line) => {
-                        const [lastname, firstname] = line.split(",").map((s) => s.trim());
-                        return { Vorname: firstname, Name: lastname, Kurs: "" };
-                    });
-                }
-                await axios.post(`http://${API_BASE}/api/participants/import`, imported);
-                setPeople(imported);
-                alert(`✅ Imported ${imported.length} participants`);
-            } catch (err) {
-                console.error("Fehler beim Importieren der Teilnehmer:", err);
-                alert("❌ Fehler beim Importieren der Teilnehmer. Bitte prüfen Sie die Datei.");
+    const importParticipants = async () => {
+        try {
+            const result = await window.electron.ipcRenderer.invoke("import-participants-dialog");
+            if (!result) return;
+
+            let imported = [];
+            const { content, path } = result;
+
+            if (path.endsWith(".json")) {
+                const json = JSON.parse(content);
+                imported = json.map((p) => ({
+                    Vorname: p.Vorname || p.firstname || "",
+                    Name: p.Name || p.lastname || "",
+                    Kurs: p.Kurs || "",
+                }));
+            } else if (path.endsWith(".csv")) {
+                const lines = content.split("\n").map((l) => l.trim()).filter(Boolean);
+                imported = lines.map((line) => {
+                    const [lastname, firstname] = line.split(",").map((s) => s.trim());
+                    return { Vorname: firstname, Name: lastname, Kurs: "" };
+                });
             }
-        };
-        reader.readAsText(file);
+
+            await axios.post(`http://${API_BASE}/api/participants/import`, imported);
+            setPeople(imported);
+
+            alert(`✅ Imported ${imported.length} participants`);
+        } catch (err) {
+            console.error("Fehler beim Importieren der Teilnehmer:", err);
+            alert("❌ Fehler beim Importieren der Teilnehmer. Bitte prüfen Sie die Datei.");
+        }
     };
 
+    const importWorkshops = async () => {
+        try {
+            const result = await window.electron.ipcRenderer.invoke("import-workshops-dialog");
+            if (!result) return;
 
-    const importWorkshops = (event) => {
-        const file = event.target.files[0];
+            const importedData = JSON.parse(result.content);
 
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-
-                    // Workshops an den Server senden
-                    try {
-                        const response = await axios.post(`http://${API_BASE}/api/workshops/import`, importedData);
-                        if (response.status === 200) {
-                            alert('Workshops erfolgreich importiert!');
-                        } else {
-                            alert('Fehler beim Importieren der Workshops auf dem Server.');
-                        }
-                    } catch (serverError) {
-                        console.error('Serverfehler beim Importieren der Workshops:', serverError);
-                        alert('Fehler beim Importieren der Workshops auf dem Server.');
-                    }
-                } catch (error) {
-                    console.error('Fehler beim Parsen des JSON:', error);
-                    alert('Fehler beim Importieren der Workshops. Bitte stellen Sie sicher, dass die Datei gültiges JSON enthält.');
-                }
-            };
-            reader.readAsText(file);
+            // Send to server
+            const response = await axios.post(`http://${API_BASE}/api/workshops/import`, importedData);
+            if (response.status === 200) {
+                alert("✅ Daten erfolgreich importiert!");
+            } else {
+                alert("❌ Fehler beim Server-Update.");
+            }
+        } catch (error) {
+            console.error("Fehler beim Import:", error);
+            alert("Fehler beim Importieren. Bitte gültige JSON-Datei auswählen.");
         }
     };
 
     const handleDeleteClick = (id) => async () => {
         try {
+            if (settings.warnBeforeDelete) {
+                const confirmDelete = window.confirm(
+                    "Are you sure you want to delete this entry?"
+                );
+                if (!confirmDelete) return;
+            }
             // Delete from server
             await axios.delete(`http://${API_BASE}/api/preferences/${id}`);
             console.log(`Submission with ID ${id} successfully deleted from server.`);
@@ -282,217 +335,103 @@ export default function AdminView() {
     return (
         <>
             <div className="min-h-screen flex flex-col p-4 bg-white w-full">
-                    <div className="flex mb-4 justify-between items-end w-full">
-                        <div className='flex'>
-                            <div className="flex flex-col items-center">
-                                <p className="font-semibold text-sm">Preference</p>
-                                <div className="flex space-x-2">
-                                    <button
-                                        className="p-2 hover:bg-gray-200"
-                                        onClick={exportData}
-                                    >
-                                        <div className="flex items-center flex-col text-sm">
-                                            <FileDownloadIcon fontSize="small" />
-                                            <span>Export</span>
-                                        </div>
-                                    </button>
-                                    <label className="p-2 hover:bg-gray-200 cursor-pointer">
-                                        <div className="flex items-center flex-col text-sm">
-                                            <FileUploadIcon fontSize="small" />
-                                            <span>Import</span>
-                                        </div>
-                                        <input
-                                            type="file"
-                                            accept=".json"
-                                            onChange={importData}
-                                            style={{ display: 'none' }}
-                                        />
-                                    </label>
-                                </div>
-                            </div>
-                            <div className="border-l border-gray-300 h-fill mx-2"></div>
-                            <div className="flex flex-col items-center">
-                                <p className="font-semibold text-sm">Workshop</p>
-                                <div className="flex space-x-2">
-                                    <button
-                                        className="p-2 hover:bg-gray-200 "
-                                        onClick={exportWorkshops}
-                                    >
-                                        <div className="flex items-center flex-col text-sm">
-                                            <FileDownloadIcon fontSize='small' />
-                                            <span>Export</span>
-                                        </div>
-                                    </button>
-                                    <label className="p-2 hover:bg-gray-200 cursor-pointer">
-                                        <div className="flex items-center flex-col text-sm">
-                                            <FileUploadIcon fontSize='small' />
-                                            <span>Import</span>
-                                        </div>
-                                        <input
-                                            type="file"
-                                            accept=".json"
-                                            onChange={importWorkshops}
-                                            style={{ display: 'none' }}
-                                        />
-                                    </label>
-                                    <button
-                                        className="p-2 hover:bg-gray-200 "
-                                        onClick={() => setOpenWorkshopEditor(true)}
-                                    >
-                                        <div className="flex items-center flex-col text-sm">
-                                            <SettingsIcon fontSize='small' />
-                                            <span>Edit</span>
-                                        </div>
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="border-l border-gray-300 h-fill mx-2"></div>
-                            <div className="flex flex-col items-center">
-                                <p className="font-semibold text-sm">Allocate</p>
-                                <div className="flex space-x-2">
-                                    <button
-                                        className="p-2 hover:bg-gray-200"
-                                        onClick={() => generateAllocationFile(selectedDays)}
-                                    >
-                                        <div className="flex items-center flex-col text-sm">
-                                            <AutoModeIcon fontSize='small' />
-                                            <span>HTML</span>
-                                        </div>
-                                    </button>
-                                    <button
-                                        className="p-2 hover:bg-gray-200"
-                                        onClick={() => generateAllocationCSV(selectedDays)}
-                                    >
-                                        <div className="flex items-center flex-col text-sm">
-                                            <AutoModeIcon fontSize='small' />
-                                            <span>CSV</span>
-                                        </div>
-                                    </button>
-                                    <button
-                                        className="p-2 hover:bg-gray-200"
-                                        onClick={() => generateAllocationDocx(selectedDays)}
-                                    >
-                                        <div className="flex items-center flex-col text-sm">
-                                            <AutoModeIcon fontSize='small' />
-                                            <span>DOCX</span>
-                                        </div>
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="border-l border-gray-300 h-fill mx-2"></div>
-                            <div className="flex flex-col items-center">
-                                <p className="font-semibold text-sm">Teilnehmer</p>
-                                <div className="flex space-x-2">
-                                    <label className="p-2 hover:bg-gray-200 cursor-pointer">
-                                        <div className="flex items-center flex-col text-sm text-center">
-                                            <FileUploadIcon fontSize="small" />
-                                            <span className='block'>Import</span>
-                                        </div>
-                                        <input
-                                            type="file"
-                                            accept=".json,.csv"
-                                            onChange={importParticipants}
-                                            style={{ display: "none" }}
-                                        />
-                                    </label>
-                                </div>
-                            </div>
-                            <div className="border-l border-gray-300 h-fill mx-2"></div>
-                            <div className="flex flex-col items-center">
-                                <p className="font-semibold text-sm">Options</p>
-                                <div className="flex space-x-2">
-                                    <button
-                                        className="p-2 hover:bg-gray-200"
-                                        onClick={fetchSubmissions} // Trigger the refresh when clicked
-                                    >
-                                        <div className="flex items-center flex-col text-sm">
-                                            <RefreshIcon fontSize='small' />
-                                            <span>Refresh</span>
-                                        </div>
-                                    </button>
-                                    <button
-                                        className="p-2 hover:bg-gray-200"
-                                        onClick={() => {
-                                            const missing = getUnmatchedNames();
-                                            if (missing.length === 0) {
-                                                alert('✅ All names are matched!');
-                                            } else {
-                                                alert(`❌ Missing names:\n\n${missing.join('\n')}`);
-                                            }
-                                        }}
-                                    >
-                                        <div className="flex items-center flex-col text-sm">
-                                            <RuleIcon fontSize='small' />
-                                            <span>Missing</span>
-                                        </div>
-                                    </button>
-                                     <button
-                                        className="p-2 hover:bg-gray-200 "
-                                        onClick={() => setQrOpen(true)}
-                                    >
-                                        <div className="flex items-center flex-col text-sm">
-                                            <QrCodeIcon fontSize='small' />
-                                            <span>QR Code</span>
-                                        </div>
-                                    </button>
-                                    {/* Dropdowns */}
-                                    <div className="flex flex-col items-center space-y-1 mt-2 text-sm">
-                                        <select
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
-                                            value={selectedDays}
-                                            onChange={(e) => setSelectedDays(parseInt(e.target.value))}
-                                        >
-                                            {[1,2,3].map((n) => (
-                                                <option key={n} value={n}>{n}</option>
-                                            ))}
-                                        </select>
-                                        <span>Days</span>
+                <div className="flex mb-4 justify-between items-end w-full">
+                    <div className='flex'>
+                        <div className="flex flex-col items-center">
+                            <p className="font-semibold text-sm">Allocate</p>
+                            <div className="flex space-x-2">
+                                <button
+                                    className="p-2 hover:bg-gray-200"
+                                    onClick={() => generateAllocationFile(selectedDays)}
+                                >
+                                    <div className="flex items-center flex-col text-sm">
+                                        <AutoModeIcon fontSize='small' />
+                                        <span>HTML</span>
                                     </div>
-                                    <div className="flex flex-col items-center space-y-1 mt-2 text-sm">
-                                        <select
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
-                                            value={selectedPreferences}
-                                            onChange={(e) => setSelectedPreferences(parseInt(e.target.value))}
-                                        >
-                                            {[1, 2, 3, 4, 5].map((n) => (
-                                                <option key={n} value={n}>{n}</option>
-                                            ))}
-                                        </select>
-                                        <span>Preferences</span>
+                                </button>
+                                <button
+                                    className="p-2 hover:bg-gray-200"
+                                    onClick={() => generateAllocationCSV(selectedDays)}
+                                >
+                                    <div className="flex items-center flex-col text-sm">
+                                        <AutoModeIcon fontSize='small' />
+                                        <span>CSV</span>
                                     </div>
-                                </div>
+                                </button>
+                                <button
+                                    className="p-2 hover:bg-gray-200"
+                                    onClick={() => generateAllocationDocx(selectedDays)}
+                                >
+                                    <div className="flex items-center flex-col text-sm">
+                                        <AutoModeIcon fontSize='small' />
+                                        <span>DOCX</span>
+                                    </div>
+                                </button>
                             </div>
                         </div>
-                        <div className="text-sm text-gray-600">
-                            <strong>Matched:</strong> {matchedCount} of {totalPeople} people
+                        <div className="border-l border-gray-300 h-fill mx-2"></div>
+                        <div className="flex flex-col items-center">
+                            <p className="font-semibold text-sm">Options</p>
+                            <div className="flex space-x-2">
+                                {/* Dropdowns */}
+                                <div className="flex flex-col items-center space-y-1 mt-2 text-sm">
+                                    <select
+                                        className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                        value={selectedDays}
+                                        onChange={(e) => setSelectedDays(parseInt(e.target.value))}
+                                    >
+                                        {[1, 2, 3].map((n) => (
+                                            <option key={n} value={n}>{n}</option>
+                                        ))}
+                                    </select>
+                                    <span>Days</span>
+                                </div>
+                                <div className="flex flex-col items-center space-y-1 mt-2 text-sm">
+                                    <select
+                                        className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                        value={selectedPreferences}
+                                        onChange={(e) => setSelectedPreferences(parseInt(e.target.value))}
+                                    >
+                                        {[1, 2, 3, 4, 5].map((n) => (
+                                            <option key={n} value={n}>{n}</option>
+                                        ))}
+                                    </select>
+                                    <span>Preferences</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div style={{ height: '82vh', width: '100%' }}>
-                        <DataGrid rows={submissions.map((submission) => {
-                            const matched = isNameMatched(submission.name);
-                            return {
-                                id: submission.id,
-                                name: submission.name,
-                                first: submission.preferences.first,
-                                second: submission.preferences.second,
-                                third: submission.preferences.third,
-                                fourth: submission.preferences.fourth,
-                                matched,
-                            }
-                        })}
-                            columns={columns} pageSize={5}
-                            localeText={deDE.components.MuiDataGrid.defaultProps.localeText}
-                            processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)}
-                            getRowClassName={(params) =>
-                                params.row.matched ? '' : 'unmatched-row'
-                            } />
+                    <div className="text-sm text-gray-600">
+                        <strong>Matched:</strong> {matchedCount} of {totalPeople} people
+                    </div>
+                </div>
+                <div style={{ height: '82vh', width: '100%' }}>
+                    <DataGrid rows={submissions.map((submission) => {
+                        const matched = isNameMatched(submission.name);
+                        return {
+                            id: submission.id,
+                            name: submission.name,
+                            first: submission.preferences.first,
+                            second: submission.preferences.second,
+                            third: submission.preferences.third,
+                            fourth: submission.preferences.fourth,
+                            matched,
+                        }
+                    })}
+                        columns={columns} pageSize={5}
+                        localeText={deDE.components.MuiDataGrid.defaultProps.localeText}
+                        processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)}
+                        getRowClassName={(params) =>
+                            params.row.matched ? '' : 'unmatched-row'
+                        } />
 
-                    </div>
+                </div>
                 <WorkshopEditor
                     open={openWorkshopEditor}
                     onClose={() => setOpenWorkshopEditor(false)}
                 />
                 <QRDialog open={qrOpen} onClose={() => setQrOpen(false)} />
+                <SettingsDialog open={settingsOpen} onClose={handleSettingsClose} />
             </div>
         </>
     );

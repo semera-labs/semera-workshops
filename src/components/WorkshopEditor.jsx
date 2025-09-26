@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
     DataGrid,
     GridActionsCellItem,
@@ -17,6 +17,7 @@ import API_BASE from "../lib/api.js";
 
 export default function WorkshopEditor({ open, onClose }) {
     const [workshops, setWorkshops] = useState([]);
+    const [settings, setSettings] = useState({ warnBeforeDelete: true });
 
     // Fetch workshops
     const fetchWorkshops = async () => {
@@ -27,6 +28,16 @@ export default function WorkshopEditor({ open, onClose }) {
             console.error("Error fetching workshops:", err);
         }
     };
+
+    useEffect(() => {
+        if (open && window.electron?.ipcRenderer) {
+            window.electron.ipcRenderer.invoke("settings:load").then((loaded) => {
+                setSettings({
+                    warnBeforeDelete: loaded.warnBeforeDelete ?? true,
+                });
+            });
+        }
+    }, [open]);
 
     useEffect(() => {
         if (open) fetchWorkshops();
@@ -47,14 +58,23 @@ export default function WorkshopEditor({ open, onClose }) {
     };
 
     // Handle delete
-    const handleDeleteClick = (id) => async () => {
-        try {
-            await axios.delete(`http://${API_BASE}/api/workshops/${id}`);
-            setWorkshops(workshops.filter((w) => w.id !== id));
-        } catch (err) {
-            console.error("Error deleting workshop:", err);
-        }
-    };
+    const handleDeleteClick = useCallback(
+        (id) => async () => {
+            try {
+                if (settings?.warnBeforeDelete) {
+                    const confirmDelete = window.confirm(
+                        "Are you sure you want to delete this workshop?"
+                    );
+                    if (!confirmDelete) return;
+                }
+                await axios.delete(`http://${API_BASE}/api/workshops/${id}`);
+                setWorkshops((prev) => prev.filter((w) => w.id !== id));
+            } catch (err) {
+                console.error("Error deleting workshop:", err);
+            }
+        },
+        [settings, setWorkshops] // dependencies — rebind when settings change
+    );
 
     // Handle add
     const handleAddWorkshop = async () => {
