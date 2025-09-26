@@ -6,10 +6,9 @@
   "type": "module",
   "description": "An Electron-based app for managing workshop preferences, participants, and allocations.",
   "author": {
-    "name": "Jan Schulz-Nigmann",
-    "email": "jan@schulz-nigmann.de"
+    "name": "Jan Schulz-Nigmann"
   },
-  "homepage": "https://github.com/yourname/semera-workshops",
+  "homepage": "https://github.com/TieHaxJan/semera-workshops",
   "license": "MIT",
   "scripts": {
     "dev": "cross-env NODE_ENV=development concurrently \"vite --config vite.config.js\" \"wait-on http://localhost:5173 && electron .\"",
