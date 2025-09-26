@@ -1,0 +1,94 @@
+{
+  "name": "semera-workshops",
+  "productName": "Semera Workshops",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "An Electron-based app for managing workshop preferences, participants, and allocations.",
+  "author": {
+    "name": "Jan Schulz-Nigmann",
+    "email": "jan@schulz-nigmann.de"
+  },
+  "homepage": "https://github.com/yourname/semera-workshops",
+  "license": "MIT",
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development concurrently \"vite --config vite.config.js\" \"wait-on http://localhost:5173 && electron .\"",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "build:react": "vite build",
+    "build:electron": "electron-builder",
+    "build:manual": "md-to-pdf ./manual.md",
+    "build": "npm run build:react && npm run build:electron"
+  },
+  "main": "src/main/main.js",
+  "build": {
+    "appId": "com.semera.workshops",
+    "productName": "Semera Workshops",
+    "files": [
+      "dist/**/*",
+      "src/main/**/*",
+      "src/server/**/*",
+      "src/lib/**/*",
+      "src/models/**/*",
+      "src/assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "manual.pdf",
+        "to": ".."
+      }
+    ],
+    "directories": {
+      "buildResources": "src/assets"
+    },
+    "win": {
+      "target": "portable",
+      "artifactName": "Semera-Workshops-${version}.exe",
+      "icon": "icons/win/icon.ico"
+    },
+    "mac": {
+      "target": "zip",
+      "artifactName": "Semera-Workshops-${version}-mac.zip",
+      "icon": "icons/mac/icon.icns"
+    }
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.2",
+    "@mui/material": "^7.3.2",
+    "@mui/x-data-grid": "^8.11.3",
+    "@tailwindcss/vite": "^4.1.13",
+    "cors": "^2.8.5",
+    "docx": "^9.5.1",
+    "express": "^5.1.0",
+    "file-saver": "^2.0.5",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.1",
+    "sequelize": "^6.37.7",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.3",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.0.0",
+    "electron": "^38.1.2",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9.36.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.4.0",
+    "md-to-pdf": "^5.2.4",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.13",
+    "vite": "^7.1.7",
+    "wait-on": "^9.0.1"
+  }
+}

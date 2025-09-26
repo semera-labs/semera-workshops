@@ -1,0 +1,44 @@
+[
+    {
+        "id": 1,
+        "title": "Tanzen",
+        "maxParticipants": 15,
+        "minParticipants": 1,
+        "staff": "Schulz-Nigmann"
+    },
+    {
+        "id": 2,
+        "title": "Insektenhotels",
+        "maxParticipants": 15,
+        "minParticipants": 1,
+        "staff": "Binder"
+    },
+    {
+        "id": 3,
+        "title": "Wassermusik",
+        "maxParticipants": 15,
+        "minParticipants": 1,
+        "staff": "Hössler, Durstewitz-Hermann"
+    },
+    {
+        "id": 4,
+        "title": "Stop-Motion Filme",
+        "maxParticipants": 15,
+        "minParticipants": 1,
+        "staff": "Turgut"
+    },
+    {
+        "id": 5,
+        "title": "Taxi Geschichten",
+        "maxParticipants": 15,
+        "minParticipants": 1,
+        "staff": "Schäfer"
+    },
+    {
+        "id": 6,
+        "title": "Traumschule",
+        "maxParticipants": 15,
+        "minParticipants": 1,
+        "staff": "Hänsgen"
+    }
+]
