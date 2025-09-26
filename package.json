@@ -15,9 +15,10 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "build:react": "vite build",
-    "build:electron": "electron-builder",
+    "build:electron": "electron-builder --publish never",
     "build:manual": "md-to-pdf ./manual.md",
-    "build": "npm run build:react && npm run build:electron"
+    "release": "electron-builder --publish always",
+    "build": "npm run build:react && npm run build:manual && npm run build:electron"
   },
   "main": "src/main/main.js",
   "build": {
