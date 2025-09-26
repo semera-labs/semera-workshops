@@ -5,16 +5,16 @@
 <h1 align="center">Semera Workshops</h1>
 <p align="center">
   <!-- Latest release -->
-  <a href="https://github.com/yourname/semera-workshops/releases">
-    <img src="https://img.shields.io/github/v/release/yourname/semera-workshops?style=for-the-badge&color=blue" alt="Latest Release"/>
+  <a href="https://github.com/TieHaxJan/semera-workshops/releases">
+    <img src="https://img.shields.io/github/v/release/TieHaxJan/semera-workshops?style=for-the-badge&color=blue" alt="Latest Release"/>
   </a>
   <!-- Build status -->
-  <a href="https://github.com/yourname/semera-workshops/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/yourname/semera-workshops/build.yml?branch=main&style=for-the-badge" alt="Build Status"/>
+  <a href="https://github.com/TieHaxJan/semera-workshops/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/TieHaxJan/semera-workshops/build.yml?branch=main&style=for-the-badge" alt="Build Status"/>
   </a>
   <!-- Downloads -->
-  <a href="https://github.com/yourname/semera-workshops/releases">
-    <img src="https://img.shields.io/github/downloads/yourname/semera-workshops/total?style=for-the-badge&color=success" alt="Downloads"/>
+  <a href="https://github.com/TieHaxJan/semera-workshops/releases">
+    <img src="https://img.shields.io/github/downloads/TieHaxjan/semera-workshops/total?style=for-the-badge&color=success" alt="Downloads"/>
   </a>
 </p>
 
