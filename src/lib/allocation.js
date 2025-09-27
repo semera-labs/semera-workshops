@@ -8,6 +8,7 @@ export async function allocateWorkshops(numDays = 1) {
     const submissionsData = submissions.map((sub) => sub.get({ plain: true }));
     const workshopsData = workshops.map((ws) => ws.get({ plain: true }));
 
+    const warnings = [];
     const days = Array.from({ length: numDays }, (_, i) => i + 1);
 
     // Single-day mode
@@ -83,11 +84,14 @@ export async function allocateWorkshops(numDays = 1) {
 
             if (!assigned) {
                 stillUnassigned.push(submission);
-                console.warn(`Could not assign participant: ${submission.name}`);
+                warnings.push(`Could not assign participant: ${submission.name}`);
             }
         });
 
-        return Object.values(workshopMap); // Same return as original single-day version
+        return {
+            workshops: Object.values(workshopMap),
+            warnings,
+        };
     }
 
     // Multi-day mode
@@ -147,7 +151,7 @@ export async function allocateWorkshops(numDays = 1) {
         }
 
         if (allocated.length < days.length) {
-            console.warn(`Could not allocate all ${days.length} preferences for ${submission.name}`);
+            warnings.push(`Could not allocate all ${days.length} preferences for ${submission.name}`);
         }
 
         studentAllocations[submission.name] = allocated;
@@ -156,5 +160,6 @@ export async function allocateWorkshops(numDays = 1) {
     return {
         schedule: workshopSchedule,
         allocations: studentAllocations,
+        warnings,
     };
 }

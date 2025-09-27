@@ -47,7 +47,7 @@ It is designed for **offline, LAN-based use** (no internet required). Participan
 
 * [ ] Submit form should dynamically respect the configured number of preferences.
 * [ ] Allocation should be **stored once**; exports should only read, not reallocate.
-* [ ] Warn admin when allocation leaves participants unassigned.
+* [x] Warn admin when allocation leaves participants unassigned.
 * [ ] Add all options to the application menu bar.
 * [ ] Implement internationalization (i18n).
 * [x] Add menu entry for opening the submission form in a browser.

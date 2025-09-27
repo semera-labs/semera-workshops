@@ -26,6 +26,10 @@ export const generateAllocationFile = async (numOfDays) => {
             return;
         }
 
+        if (allocations.warnings && allocations.warnings.length > 0) {
+            alert("Allocation Warnings:\n\n" + allocations.warnings.join("\n"));
+        }
+
         let htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -114,6 +118,11 @@ export const generateAllocationCSV = async (numOfDays) => {
             return;
         }
 
+        if (allocations.warnings && allocations.warnings.length > 0) {
+            alert("Allocation Warnings:\n\n" + allocations.warnings.join("\n"));
+        }
+
+
         let csvContent = '';
 
         if (Array.isArray(allocations)) {
@@ -167,6 +176,10 @@ export const generateAllocationDocx = async (numOfDays) => {
         if (!allocations || (Array.isArray(allocations) && allocations.length === 0)) {
             alert("No allocations available to generate the file.");
             return;
+        }
+
+        if (allocations.warnings && allocations.warnings.length > 0) {
+            alert("Allocation Warnings:\n\n" + allocations.warnings.join("\n"));
         }
 
         const sections = [];
