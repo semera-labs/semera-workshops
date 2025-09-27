@@ -40,6 +40,15 @@ export async function deleteWorkshop(id) {
     return workshop;
 }
 
+export async function deleteAllWorkshops() {
+    try {
+        await Workshop.destroy({ where: {}, truncate: true });
+    } catch (error) {
+        console.error("Error deleting all workshops:", error);
+        throw error;
+    }
+}
+
 // Optional: replace all workshops with a new set
 export async function setWorkshops(newWorkshops) {
     await Workshop.destroy({ where: {} });

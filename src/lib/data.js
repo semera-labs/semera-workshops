@@ -51,3 +51,12 @@ export async function deleteSubmissionById(id) {
         throw error;
     }
 }
+
+export async function deleteAllSubmissions() {
+    try {
+        await Submission.destroy({ where: {}, truncate: true });
+    } catch (error) {
+        console.error("Error deleting all submissions:", error);
+        throw error;
+    }
+}

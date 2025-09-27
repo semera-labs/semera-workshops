@@ -5,7 +5,8 @@ import {
     setWorkshops,
     getWorkshopById,
     updateWorkshop,
-    deleteWorkshop
+    deleteWorkshop,
+    deleteAllWorkshops
 } from "../../lib/workshops.js";
 import { allocateWorkshops } from "../../lib/allocation.js"
 
@@ -108,6 +109,17 @@ router.delete("/:id", async (req, res) => {
     } catch (err) {
         console.error("Error deleting workshop:", err);
         res.status(500).json({ message: "Error deleting workshop" });
+    }
+});
+
+// DELETE /api/workshops → delete all workshops
+router.delete("/", async (req, res) => {
+    try {
+        await deleteAllWorkshops();
+        res.status(200).json({ message: "Alle Einträge erfolgreich gelöscht." });
+    } catch (error) {
+        console.error("Fehler beim Löschen aller Einträge:", error);
+        res.status(500).json({ message: "Fehler beim Löschen aller Einträge." });
     }
 });
 

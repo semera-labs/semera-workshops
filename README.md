@@ -53,7 +53,7 @@ It is designed for **offline, LAN-based use** (no internet required). Participan
 * [x] Add menu entry for opening the submission form in a browser.
 * [x] (Add preference via Admin menu.) → Can be done by opening the submit form and adding an entry.
 * [x] Show confirmation before deleting submissions. (Disable in settings)
-* [ ] Delete-all Buttons
+* [x] Delete-all Buttons
 * [x] Secure `/admin` endpoint against LAN access (restrict to Electron app).
 * [ ] Apply custom icons and consistent headers across all windows.
 * [x] Add Bonjour/mDNS service broadcast for `.local` access.

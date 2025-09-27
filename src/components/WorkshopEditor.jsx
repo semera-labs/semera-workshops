@@ -147,6 +147,25 @@ export default function WorkshopEditor({ open, onClose }) {
                 >
                     Add Workshop
                 </Button>
+                <Button
+                    onClick={async () => {
+                        const confirmDelete = window.confirm(
+                            "Are you sure you want to delete all Workshops?"
+                        );
+                        if (!confirmDelete) return;
+
+                        try {
+                            await axios.delete(`http://${API_BASE}/api/workshops`); // assuming you support bulk delete
+                            setWorkshops([]);
+                        } catch (err) {
+                            console.error("Error deleting all workshops:", err);
+                            alert("Failed to delete all workshops.");
+                        }
+                    }}
+                    className="text-white hover:bg-red-600" color="error" variant="contained"
+                >
+                    Delete All
+                </Button>
                 <Button onClick={onClose} color="primary" variant="contained">
                     Close
                 </Button>

@@ -4,7 +4,8 @@ import {
     saveSubmission,
     saveImportedData,
     updateSubmissionById,
-    deleteSubmissionById
+    deleteSubmissionById,
+    deleteAllSubmissions
 } from "../../lib/data.js";
 
 const router = express.Router();
@@ -91,6 +92,17 @@ router.delete("/:id", async (req, res) => {
     } catch (error) {
         console.error("Fehler beim Löschen des Eintrags auf dem Server:", error);
         res.status(500).json({ message: "Fehler beim Löschen des Eintrags." });
+    }
+});
+
+// DELETE /api/preferences → delete all submissions
+router.delete("/", async (req, res) => {
+    try {
+        await deleteAllSubmissions();
+        res.status(200).json({ message: "Alle Einträge erfolgreich gelöscht." });
+    } catch (error) {
+        console.error("Fehler beim Löschen aller Einträge:", error);
+        res.status(500).json({ message: "Fehler beim Löschen aller Einträge." });
     }
 });
 

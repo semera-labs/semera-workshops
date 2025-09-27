@@ -5,17 +5,12 @@ import { saveAs } from 'file-saver';
 import { deDE } from '@mui/x-data-grid/locales';
 import { generateAllocationCSV, generateAllocationFile, generateAllocationDocx } from '../../lib/generateAllocationReport';
 import WorkshopEditor from "../../components/WorkshopEditor";
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
-import SettingsIcon from '@mui/icons-material/Settings';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
-import RuleIcon from '@mui/icons-material/Rule';
-import QrCodeIcon from '@mui/icons-material/QrCode';
 import QRDialog from "../../components/QRDialog";
 import API_BASE from "../../lib/api.js";
 import SettingsDialog from "../../components/SettingsDialog";
+import { Button } from "@mui/material";
 
 export default function AdminView() {
     const [submissions, setSubmissions] = useState([]);
@@ -104,9 +99,9 @@ export default function AdminView() {
         const handler = () => {
             const missing = getUnmatchedNames();
             if (missing.length === 0) {
-                alert('✅ All names are matched!');
+                alert('All names are matched!');
             } else {
-                alert(`❌ Missing names:\n\n${missing.join('\n')}`);
+                alert(`Missing names:\n\n${missing.join('\n')}`);
             }
         };
 
@@ -163,9 +158,8 @@ export default function AdminView() {
             // Send to server
             const response = await axios.post(`http://${API_BASE}/api/preferences/import`, importedData);
             if (response.status === 200) {
-                alert("✅ Daten erfolgreich importiert!");
             } else {
-                alert("❌ Fehler beim Server-Update.");
+                alert("Fehler beim Server-Update.");
             }
         } catch (error) {
             console.error("Fehler beim Import:", error);
@@ -199,11 +193,9 @@ export default function AdminView() {
 
             await axios.post(`http://${API_BASE}/api/participants/import`, imported);
             setPeople(imported);
-
-            alert(`✅ Imported ${imported.length} participants`);
         } catch (err) {
             console.error("Fehler beim Importieren der Teilnehmer:", err);
-            alert("❌ Fehler beim Importieren der Teilnehmer. Bitte prüfen Sie die Datei.");
+            alert("Fehler beim Importieren der Teilnehmer. Bitte prüfen Sie die Datei.");
         }
     };
 
@@ -217,9 +209,8 @@ export default function AdminView() {
             // Send to server
             const response = await axios.post(`http://${API_BASE}/api/workshops/import`, importedData);
             if (response.status === 200) {
-                alert("✅ Daten erfolgreich importiert!");
             } else {
-                alert("❌ Fehler beim Server-Update.");
+                alert("Fehler beim Server-Update.");
             }
         } catch (error) {
             console.error("Fehler beim Import:", error);
@@ -410,11 +401,8 @@ export default function AdminView() {
                             </div>
                         </div>
                     </div>
-                    <div className="text-sm text-gray-600">
-                        <strong>Matched:</strong> {matchedCount} of {totalPeople} people
-                    </div>
                 </div>
-                <div style={{ height: '82vh', width: '100%' }}>
+                <div style={{ height: '75vh', width: '100%' }}>
                     <DataGrid rows={submissions.map((submission) => {
                         const matched = isNameMatched(submission.name);
                         return {
@@ -434,6 +422,30 @@ export default function AdminView() {
                             params.row.matched ? '' : 'unmatched-row'
                         } />
 
+                </div>
+                <div className="flex justify-between items-center mt-2 text-sm text-gray-600">
+                    <div>
+                        <strong>Matched:</strong> {matchedCount} of {totalPeople} people
+                    </div>
+                    <Button
+                        onClick={async () => {
+                            const confirmDelete = window.confirm(
+                                "Are you sure you want to delete all submissions?"
+                            );
+                            if (!confirmDelete) return;
+
+                            try {
+                                await axios.delete(`http://${API_BASE}/api/preferences`); // assuming you support bulk delete
+                                setSubmissions([]);
+                            } catch (err) {
+                                console.error("Error deleting all submissions:", err);
+                                alert("Failed to delete all submissions.");
+                            }
+                        }}
+                        className="text-white hover:bg-red-600" color="error" variant="contained"
+                    >
+                        Delete All
+                    </Button>
                 </div>
                 <WorkshopEditor
                     open={openWorkshopEditor}
