@@ -49,8 +49,8 @@ It is designed for **offline, LAN-based use** (no internet required). Participan
 - [ ] Implement internationalization (i18n).
 - [x] (Add preference via Admin menu.) → Can be done by opening the submit form and adding an entry.
 - [ ] Apply custom icons and consistent headers across all windows.
+- [ ] Create new Missing People Window Dialog.
 - [ ] Finalize build pipeline and product shipping process.
-- [ ] Favicon for submit page
 - [ ] Future Buddy-Feature
 
 ## 📦 Project Structure
@@ -66,8 +66,8 @@ semera-workshops/
 │   ├── renderer/        # React frontend (AdminView, IndexView)
 │   └── server/          # Express API (preferences, workshops, participants)
 ├── dist/                # Build output
-├── assets/              # Build resources (icons, manual, etc.)
-├── manual.md            # Project manual (compiled into PDF for Help menu)
+├── public/              # Icon
+├── manual.docx          # Project manual
 ├── package.json         # Dependencies and electron-builder config
 └── README.md            # This file
 ```
@@ -109,8 +109,8 @@ npm run build
 
 ## 📖 Manual
 
-* Written in `manual.md`.
-* Compiled into **manual.pdf** with `npm run build:manual`.
+* Written in `manual.docx`.
+* Compiled into **manual.pdf**.
 * Shipped with the app and accessible via **Help → Manual**.
 
 ## 🔒 Notes on Networking
