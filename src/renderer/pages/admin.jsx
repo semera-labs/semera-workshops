@@ -5,7 +5,6 @@ import { saveAs } from 'file-saver';
 import { deDE } from '@mui/x-data-grid/locales';
 import { generateAllocationCSV, generateAllocationFile, generateAllocationDocx, generateAllocation } from '../../lib/generateAllocationReport';
 import WorkshopEditor from "../../components/WorkshopEditor";
-import AutoModeIcon from '@mui/icons-material/AutoMode';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import QRDialog from "../../components/QRDialog";
 import API_BASE from "../../lib/api.js";
@@ -15,15 +14,12 @@ import { Button } from "@mui/material";
 export default function AdminView() {
     const [submissions, setSubmissions] = useState([]);
 
-    const [selectedDays, setSelectedDays] = useState(1);
-    const [selectedPreferences, setSelectedPreferences] = useState(3);
-
     const [openWorkshopEditor, setOpenWorkshopEditor] = useState(false);
     const [people, setPeople] = useState([]);
 
     const [qrOpen, setQrOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const [settings, setSettings] = useState({ warnBeforeDelete: true });
+    const [settings, setSettings] = useState({ warnBeforeDelete: true, numDays: 1, numPreferences: 3 });
     const [allocations, setAllocations] = useState(null);
 
     // Fetch submissions from the server
@@ -93,10 +89,10 @@ export default function AdminView() {
                 window.electron.ipcRenderer.removeAllListeners("menu-reallocate");
             };
         }
-    }, [selectedDays, selectedPreferences]);
+    }, [settings]);
 
     const handleAllocate = async () => {
-        const data = await generateAllocation(selectedDays, selectedPreferences);
+        const data = await generateAllocation(settings.numDays, settings.numPreferences);
         if (data.workshops) setAllocations(data.workshops);
         console.log(data.workshops)
         if (data) setAllocations(data);
@@ -317,7 +313,7 @@ export default function AdminView() {
             .map((p) => `${p.Vorname} ${p.Name}`);
     };
 
-    const preferenceCount = selectedPreferences; // e.g. 4
+    const preferenceCount = settings.numPreferences; // e.g. 4
 
     // Build the preference columns dynamically
     const preferenceColumns = Array.from({ length: preferenceCount }, (_, index) => {
@@ -358,41 +354,7 @@ export default function AdminView() {
     return (
         <>
             <div className="min-h-screen flex flex-col p-4 bg-white w-full">
-                <div className="flex mb-4 justify-between items-end w-full">
-                    <div className='flex'>
-                        <div className="flex flex-col items-center">
-                            <p className="font-semibold text-sm">Options</p>
-                            <div className="flex space-x-2">
-                                {/* Dropdowns */}
-                                <div className="flex flex-col items-center space-y-1 mt-2 text-sm">
-                                    <select
-                                        className="border border-gray-300 rounded px-2 py-1 text-sm"
-                                        value={selectedDays}
-                                        onChange={(e) => setSelectedDays(parseInt(e.target.value))}
-                                    >
-                                        {[1, 2, 3].map((n) => (
-                                            <option key={n} value={n}>{n}</option>
-                                        ))}
-                                    </select>
-                                    <span>Days</span>
-                                </div>
-                                <div className="flex flex-col items-center space-y-1 mt-2 text-sm">
-                                    <select
-                                        className="border border-gray-300 rounded px-2 py-1 text-sm"
-                                        value={selectedPreferences}
-                                        onChange={(e) => setSelectedPreferences(parseInt(e.target.value))}
-                                    >
-                                        {[1, 2, 3, 4, 5].map((n) => (
-                                            <option key={n} value={n}>{n}</option>
-                                        ))}
-                                    </select>
-                                    <span>Preferences</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div style={{ height: '75vh', width: '100%' }}>
+                <div style={{ height: '87vh', width: '100%' }}>
                     <DataGrid rows={submissions.map((submission) => {
                         const matched = isNameMatched(submission.name);
                         return {
