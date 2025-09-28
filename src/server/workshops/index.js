@@ -58,13 +58,13 @@ router.post("/import", async (req, res) => {
 // POST /api/workshops/allocate
 router.post("/allocate", async (req, res) => {
     try {
-        const { numDays } = req.body;
+        const { numDays, maxPreferences } = req.body;
 
         if (!numDays || typeof numDays !== "number" || numDays < 1) {
             return res.status(400).json({ message: "numDays must be a positive number" });
         }
 
-        const allocations = await allocateWorkshops(numDays);
+        const allocations = await allocateWorkshops(numDays, maxPreferences || 5);
         res.status(200).json(allocations);
     } catch (error) {
         console.error("Error during allocation:", error);

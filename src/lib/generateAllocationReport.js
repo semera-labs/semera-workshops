@@ -12,11 +12,11 @@ import {
 } from "docx";
 import API_BASE from "./api.js";
 
-export const generateAllocation = async (numOfDays = 1) => {
+export const generateAllocation = async (numOfDays = 1, maxPreferences = 5) => {
     try {
         const response = await axios.post(
             `http://${API_BASE}/api/workshops/allocate`,
-            { numDays: numOfDays }
+            { numDays: numOfDays, maxPreferences: maxPreferences }
         );
         console.log('API Response:', response);
         const allocations = response.data;
@@ -68,7 +68,7 @@ export const generateAllocationFile = async (allocations) => {
             // Single-day allocation
             allocations.forEach((workshop) => {
                 htmlContent += `
-                <h2>${workshop.title}</h2>
+                <h2>${workshop.title} (${workshop.staff})</h2>
                 <table>
                     <tr><th>Name</th></tr>
                 `;
@@ -81,17 +81,17 @@ export const generateAllocationFile = async (allocations) => {
             // Multi-day allocation
             const { schedule } = allocations;
 
-            for (const [projectTitle, dayAllocations] of Object.entries(schedule)) {
+            for (const [projectTitle, workshop] of Object.entries(schedule)) {
                 htmlContent += `
                 <div class="project-container">
-                    <h2>${projectTitle}</h2>
+                    <h2>${projectTitle} (${workshop.staff})</h2>
                     <div class="day-tables">
                 `;
 
-                const days = Object.keys(dayAllocations);
+                const days = Object.keys(workshop.days);
 
                 for (const day of days) {
-                    const participants = dayAllocations[day] || [];
+                    const participants = workshop.days[day] || [];
 
                     htmlContent += `
                         <div>
@@ -131,7 +131,7 @@ export const generateAllocationCSV = async (allocations) => {
         if (Array.isArray(allocations)) {
             // Single-day allocation
             allocations.forEach((workshop) => {
-                csvContent += `"${workshop.title}"\n`;
+                csvContent += `"${workshop.title} (${workshop.staff})"\n`;
                 csvContent += 'Name\n';
                 workshop.participants.forEach((participant) => {
                     csvContent += `${participant}\n`;
@@ -142,17 +142,17 @@ export const generateAllocationCSV = async (allocations) => {
             // Multi-day allocation
             const { schedule } = allocations;
 
-            for (const [projectTitle, dayAllocations] of Object.entries(schedule)) {
-                const days = Object.keys(dayAllocations);
-                csvContent += `"${projectTitle}"\n`;
+            for (const [projectTitle, workshop] of Object.entries(schedule)) {
+                const days = Object.keys(workshop.days);
+                csvContent += `"${projectTitle} (${workshop.staff})"\n`;
                 csvContent += "Tag " + days.join(';') + '\n';
 
                 const maxRows = Math.max(
-                    ...days.map((day) => (dayAllocations[day]?.length || 0))
+                    ...days.map((day) => (workshop.days[day]?.length || 0))
                 );
 
                 for (let i = 0; i < maxRows; i++) {
-                    const row = days.map(day => dayAllocations[day]?.[i] || '');
+                    const row = days.map(day => workshop.days[day]?.[i] || '');
                     csvContent += row.join(';') + '\n';
                 }
 
@@ -207,8 +207,8 @@ export const generateAllocationDocx = async (allocations) => {
             // Multi-day allocation
             const { schedule } = allocations;
 
-            for (const [projectTitle, dayAllocations] of Object.entries(schedule)) {
-                const days = Object.keys(dayAllocations);
+            for (const [projectTitle, workshop] of Object.entries(schedule)) {
+                const days = Object.keys(workshop.days);
                 const headerRow = new TableRow({
                     children: days.map(
                         (day) => new TableCell({ children: [new Paragraph({ text: `Tag ${day}`, style: "ArialNormal", })] })
@@ -216,7 +216,7 @@ export const generateAllocationDocx = async (allocations) => {
                 });
 
                 const maxRows = Math.max(
-                    ...days.map((day) => dayAllocations[day]?.length || 0)
+                    ...days.map((day) => workshop.days[day]?.length || 0)
                 );
 
                 const rows = [headerRow];
@@ -224,7 +224,7 @@ export const generateAllocationDocx = async (allocations) => {
                     rows.push(
                         new TableRow({
                             children: days.map((day) => {
-                                const name = dayAllocations[day]?.[i] || "";
+                                const name = workshop.days[day]?.[i] || "";
                                 return new TableCell({ children: [new Paragraph({ text: name, style: "ArialNormal", })] });
                             }),
                         })

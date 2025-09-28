@@ -1,7 +1,7 @@
 import { getAllSubmissions } from './data.js';
 import { getAllWorkshops } from './workshops.js';
 
-export async function allocateWorkshops(numDays = 1) {
+export async function allocateWorkshops(numDays = 1, maxPreferences = 5) {
     const submissions = await getAllSubmissions();
     const workshops = await getAllWorkshops();
 
@@ -11,7 +11,21 @@ export async function allocateWorkshops(numDays = 1) {
     const warnings = [];
     const days = Array.from({ length: numDays }, (_, i) => i + 1);
 
+    const getPreferences = (submission) => {
+        const allPrefs = [
+            submission.preferences.first,
+            submission.preferences.second,
+            submission.preferences.third,
+            submission.preferences.fourth,
+            submission.preferences.fifth,
+        ];
+        // filter out undefined/empty and limit to maxPreferences
+        return allPrefs.filter(Boolean).slice(0, maxPreferences);
+    };
+
+    // -------------------------------
     // Single-day mode
+    // -------------------------------
     if (numDays === 1) {
         const workshopMap = {};
         workshopsData.forEach((workshop) => {
@@ -21,6 +35,7 @@ export async function allocateWorkshops(numDays = 1) {
                 maxParticipants: workshop.maxParticipants,
                 minParticipants: workshop.minParticipants,
                 participants: [],
+                staff: workshop.staff
             };
         });
 
@@ -28,11 +43,7 @@ export async function allocateWorkshops(numDays = 1) {
         const unassignedParticipants = [];
 
         shuffledSubmissions.forEach((submission) => {
-            const preferences = [
-                submission.preferences.first,
-                submission.preferences.second,
-                submission.preferences.third,
-            ];
+            const preferences = getPreferences(submission);
 
             let assigned = false;
             for (const preference of preferences) {
@@ -94,12 +105,21 @@ export async function allocateWorkshops(numDays = 1) {
         };
     }
 
+    // -------------------------------
     // Multi-day mode
+    // -------------------------------
     const workshopSchedule = {};
     for (const workshop of workshopsData) {
-        workshopSchedule[workshop.title] = {};
+        workshopSchedule[workshop.title] = {
+            id: workshop.id,
+            title: workshop.title,
+            staff: workshop.staff,
+            maxParticipants: workshop.maxParticipants,
+            minParticipants: workshop.minParticipants,
+            days: {}
+        };
         for (const day of days) {
-            workshopSchedule[workshop.title][day] = [];
+            workshopSchedule[workshop.title].days[day] = [];
         }
     }
 
@@ -114,13 +134,7 @@ export async function allocateWorkshops(numDays = 1) {
     const studentAllocations = {};
 
     for (const submission of submissionsData) {
-        let preferences = [
-            submission.preferences.first,
-            submission.preferences.second,
-            submission.preferences.third,
-            submission.preferences.fourth,
-        ];
-
+        let preferences = getPreferences(submission);
         preferences = shuffle(preferences);
 
         const allocated = [];
@@ -134,7 +148,7 @@ export async function allocateWorkshops(numDays = 1) {
                 if (usedDays.has(day)) continue;
 
                 const workshop = workshopsData.find(w => w.title === pref);
-                const projectDay = workshopSchedule[pref]?.[day];
+                const projectDay = workshopSchedule[pref]?.days?.[day];
 
                 if (
                     projectDay &&

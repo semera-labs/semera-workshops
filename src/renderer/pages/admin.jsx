@@ -64,9 +64,6 @@ export default function AdminView() {
             window.electron.ipcRenderer.on("menu-import-workshops", importWorkshops);
             window.electron.ipcRenderer.on("menu-import-participants", importParticipants);
             window.electron.ipcRenderer.on("menu-import-preferences", importData);
-            window.electron.ipcRenderer.on("menu-allocate", handleAllocate);
-            window.electron.ipcRenderer.on("menu-reallocate", handleAllocate);
-
 
             window.electron.ipcRenderer.invoke("settings:load").then((loaded) => {
                 setSettings(loaded);
@@ -82,18 +79,28 @@ export default function AdminView() {
                 window.electron.ipcRenderer.removeAllListeners("menu-import-workshops");
                 window.electron.ipcRenderer.removeAllListeners("menu-import-preferences");
                 window.electron.ipcRenderer.removeAllListeners("menu-import-participants");
-                window.electron.ipcRenderer.removeAllListeners("menu-allocate");
-                window.electron.ipcRenderer.removeAllListeners("menu-reallocate");
-                window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-html");
-                window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-csv");
-                window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-docx");
             };
         }
     }, []);
 
+    useEffect(() => {
+        if (window.electron?.ipcRenderer) {
+            window.electron.ipcRenderer.on("menu-allocate", handleAllocate);
+            window.electron.ipcRenderer.on("menu-reallocate", handleAllocate);
+
+            return () => {
+                window.electron.ipcRenderer.removeAllListeners("menu-allocate");
+                window.electron.ipcRenderer.removeAllListeners("menu-reallocate");
+            };
+        }
+    }, [selectedDays, selectedPreferences]);
+
     const handleAllocate = async () => {
-        const data = await generateAllocation(selectedDays);
+        const data = await generateAllocation(selectedDays, selectedPreferences);
         if (data.workshops) setAllocations(data.workshops);
+        console.log(data.workshops)
+        if (data) setAllocations(data);
+        console.log(data)
     };
 
     useEffect(() => {
