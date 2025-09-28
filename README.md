@@ -46,8 +46,6 @@ It is designed for **offline, LAN-based use** (no internet required). Participan
 ## 🚧 Roadmap / TODOs
 
 - [ ] Submit form should dynamically respect the configured number of preferences.
-- [x] Allocation should be **stored once**; exports should only read, not reallocate.
-- [ ] Add all options to the application menu bar.
 - [ ] Implement internationalization (i18n).
 - [x] (Add preference via Admin menu.) → Can be done by opening the submit form and adding an entry.
 - [ ] Apply custom icons and consistent headers across all windows.

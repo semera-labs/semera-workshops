@@ -16,7 +16,6 @@
     "preview": "vite preview",
     "build:react": "vite build",
     "build:electron": "electron-builder --publish never",
-    "build:manual": "md-to-pdf ./manual.md",
     "release": "electron-builder --publish always",
     "build": "npm run build:react && npm run build:electron"
   },
