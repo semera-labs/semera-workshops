@@ -37,59 +37,55 @@ async function createWindow() {
 function createAppMenu(win, hasAllocation = false) {
     const template = [
         {
-            label: "File",
+            label: "Datei",
             submenu: [
-                { label: "Import Preferences", click: () => win.webContents.send("menu-import-preferences") },
-                { label: "Export Preferences", click: () => win.webContents.send("menu-export-preferences") },
+                { label: "Präferenzen importieren", click: () => win.webContents.send("menu-import-preferences") },
+                { label: "Präferenzen exportieren", click: () => win.webContents.send("menu-export-preferences") },
                 { type: "separator" },
-                { label: "Import Workshops", click: () => win.webContents.send("menu-import-workshops") },
-                { label: "Export Workshops", click: () => win.webContents.send("menu-export-workshops") },
-                { label: "Edit Workshops", click: () => win.webContents.send("menu-edit-workshops") },
+                { label: "Workshops importieren", click: () => win.webContents.send("menu-import-workshops") },
+                { label: "Workshops exportieren", click: () => win.webContents.send("menu-export-workshops") },
+                { label: "Workshops bearbeiten", click: () => win.webContents.send("menu-edit-workshops") },
                 { type: "separator" },
-                { label: "Import Participants", click: () => win.webContents.send("menu-import-participants") },
+                { label: "Teilnehmer importieren", click: () => win.webContents.send("menu-import-participants") },
                 { type: "separator" },
-                { label: "Exit Semera Workshops", role: "quit" },
+                { label: "Einstellungen…", click: () => win.webContents.send("menu-settings") },
+                { type: "separator" },
+                { label: "Semera Workshops schließen", role: "quit" },
             ]
         },
         {
-            label: "Allocation",
+            label: "Zuteilungen",
             submenu: [
-                { label: "Allocate", id: "allocate", click: () => win.webContents.send("menu-allocate"), enabled: !hasAllocation },
-                { label: "Re-allocate", id: "reallocate", click: () => win.webContents.send("menu-reallocate"), enabled: hasAllocation },
+                { label: "Zuteilung", id: "allocate", click: () => win.webContents.send("menu-allocate"), enabled: !hasAllocation },
+                { label: "Neu-Zuteilung", id: "reallocate", click: () => win.webContents.send("menu-reallocate"), enabled: hasAllocation },
                 { type: "separator" },
                 {
-                    label: "Save Allocation",
+                    label: "Zuteilung speichern",
                     submenu: [
-                        { label: "Save as HTML", click: () => win.webContents.send("menu-save-allocation-html"), enabled: hasAllocation },
-                        { label: "Save as CSV", click: () => win.webContents.send("menu-save-allocation-csv"), enabled: hasAllocation },
-                        { label: "Save as DOCX", click: () => win.webContents.send("menu-save-allocation-docx"), enabled: hasAllocation },
+                        { label: "Speichern als HTML", click: () => win.webContents.send("menu-save-allocation-html"), enabled: hasAllocation },
+                        { label: "Speichern als CSV", click: () => win.webContents.send("menu-save-allocation-csv"), enabled: hasAllocation },
+                        { label: "Speichern als DOCX", click: () => win.webContents.send("menu-save-allocation-docx"), enabled: hasAllocation },
                     ],
                     enabled: hasAllocation
                 }
             ]
         },
         {
-            label: "View",
+            label: "Ansicht",
             submenu: [
-                { label: "Refresh View", click: () => win.webContents.send("menu-refresh") },
+                { label: "Ansicht aktualisieren", click: () => win.webContents.send("menu-refresh") },
                 {
-                    label: "Open Submit Form…",
+                    label: "Abgabe Formular öffnen…",
                     click: () => {
                         shell.openExternal("http://localhost:3001");
                     },
                 },
-                { label: "Missing Matches…", click: () => win.webContents.send("menu-missing") },
-                { label: "QR Code…", click: () => win.webContents.send("menu-qr") }
+                { label: "Fehlende Teilnehmer…", click: () => win.webContents.send("menu-missing") },
+                { label: "QR-Code…", click: () => win.webContents.send("menu-qr") }
             ]
         },
         {
-            label: "Tools",
-            submenu: [
-                { label: "Settings…", click: () => win.webContents.send("menu-settings") }
-            ]
-        },
-        {
-            label: "Help",
+            label: "Hilfe",
             submenu: [
                 {
                     label: "Handbuch (PDF)",
@@ -99,7 +95,7 @@ function createAppMenu(win, hasAllocation = false) {
                     }
                 },
                 { type: "separator" },
-                { role: "about", label: "About Semera Workshops" }
+                { role: "about", label: "Über Semera Workshops" }
             ]
         }
     ];
@@ -140,9 +136,9 @@ ipcMain.on("allocation-state", (event, hasAllocation) => {
 
 ipcMain.handle("import-participants-dialog", async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-        title: "Import Participants",
+        title: "Teilnehmer importieren",
         filters: [
-            { name: "Supported Files", extensions: ["json", "csv"] },
+            { name: "Unterstützte Datein", extensions: ["json", "csv"] },
             { name: "JSON", extensions: ["json"] },
             { name: "CSV", extensions: ["csv"] }
         ],
@@ -159,8 +155,8 @@ ipcMain.handle("import-participants-dialog", async () => {
 
 ipcMain.handle("import-preferences-dialog", async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-        title: "Import Preferences",
-        filters: [{ name: "JSON Files", extensions: ["json"] }],
+        title: "Präferenzen importieren",
+        filters: [{ name: "JSON Datein", extensions: ["json"] }],
         properties: ["openFile"]
     });
 
@@ -173,8 +169,8 @@ ipcMain.handle("import-preferences-dialog", async () => {
 
 ipcMain.handle("import-workshops-dialog", async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-        title: "Import Workshops",
-        filters: [{ name: "JSON Files", extensions: ["json"] }],
+        title: "Workshops importieren",
+        filters: [{ name: "JSON Datein", extensions: ["json"] }],
         properties: ["openFile"]
     });
 

@@ -99,7 +99,7 @@ export default function QRDialog({ open, onClose }) {
         sx={{ display: "flex", flexDirection: "row", justifyContent: "space-around" }}
       >
         <Box ref={qrRefs.android} sx={{ textAlign: "center" }}>
-          <Typography variant="h6">Android / Other</Typography>
+          <Typography variant="h6">Android / Andere</Typography>
           <QRCodeCanvas value={url.android || ""} size={256} />
           <p style={{ marginTop: "10px", wordBreak: "break-word" }}>
             {url.android}
@@ -113,8 +113,8 @@ export default function QRDialog({ open, onClose }) {
       </DialogContent>
       <DialogActions>
         <Button onClick={handleDownload}>Download</Button>
-        <Button onClick={handlePrint}>Print</Button>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={handlePrint}>Drucken</Button>
+        <Button onClick={onClose}>Schließen</Button>
       </DialogActions>
     </Dialog>
   );

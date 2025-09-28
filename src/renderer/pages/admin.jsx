@@ -103,9 +103,9 @@ export default function AdminView() {
         const handler = () => {
             const missing = getUnmatchedNames();
             if (missing.length === 0) {
-                alert('All names are matched!');
+                alert('Alle Namen abgeglichen!');
             } else {
-                alert(`Missing names:\n\n${missing.join('\n')}`);
+                alert(`Fehlende Namen:\n\n${missing.join('\n')}`);
             }
         };
 
@@ -241,7 +241,7 @@ export default function AdminView() {
         try {
             if (settings.warnBeforeDelete) {
                 const confirmDelete = window.confirm(
-                    "Are you sure you want to delete this entry?"
+                    "Sind Sie sicher, dass Sie diesen Eintrag löschen möchten?"
                 );
                 if (!confirmDelete) return;
             }
@@ -335,8 +335,8 @@ export default function AdminView() {
         {
             field: 'actions',
             type: 'actions',
-            headerName: 'Actions',
-            width: 70,
+            headerName: 'Aktionen',
+            width: 80,
             cellClassName: 'actions',
             getActions: ({ id }) => [
                 <GridActionsCellItem
@@ -377,12 +377,12 @@ export default function AdminView() {
                 </div>
                 <div className="flex justify-between items-center mt-2 text-sm text-gray-600">
                     <div>
-                        <strong>Matched:</strong> {matchedCount} of {totalPeople} people
+                        <strong>Abgleich:</strong> {matchedCount} von {totalPeople} Teilnehmern
                     </div>
                     <Button
                         onClick={async () => {
                             const confirmDelete = window.confirm(
-                                "Are you sure you want to delete all submissions?"
+                                "Sind Sie sicher, dass Sie alle Präferenzen löschen möchten?"
                             );
                             if (!confirmDelete) return;
 
@@ -391,12 +391,12 @@ export default function AdminView() {
                                 setSubmissions([]);
                             } catch (err) {
                                 console.error("Error deleting all submissions:", err);
-                                alert("Failed to delete all submissions.");
+                                alert("Fehler beim löschen aller Präferenen.");
                             }
                         }}
                         className="text-white hover:bg-red-600" color="error" variant="contained"
                     >
-                        Delete All
+                        Alle löschen
                     </Button>
                 </div>
                 <WorkshopEditor

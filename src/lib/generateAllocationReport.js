@@ -22,25 +22,25 @@ export const generateAllocation = async (numOfDays = 1, maxPreferences = 5) => {
         const allocations = response.data;
 
         if (!allocations || (Array.isArray(allocations) && allocations.length === 0)) {
-            alert('No allocations available to generate the file.');
+            alert('Keine Zuteilungen vorhanden.');
             return;
         }
 
         if (allocations.warnings && allocations.warnings.length > 0) {
-            alert("Allocation Warnings:\n\n" + allocations.warnings.join("\n"));
+            alert("Zuteilung Warnungen:\n\n" + allocations.warnings.join("\n"));
         }
 
         return allocations;
     } catch (error) {
         console.error('Error generating allocation file:', error);
-        alert(`Error generating allocation: ${error.message || 'Unknown error occurred.'}`);
+        alert(`Fehler beim Generieren der Zuteilung: ${error.message || 'Unbekannter Fehler aufgetreten.'}`);
     }
 }
 
 export const generateAllocationFile = async (allocations) => {
     try {
         if (!allocations || (Array.isArray(allocations) && allocations.length === 0)) {
-            alert('No allocations available to generate the file.');
+            alert('Keine Zuteilung vorhanden.');
             return;
         }
 
@@ -114,14 +114,14 @@ export const generateAllocationFile = async (allocations) => {
         saveAs(blob, 'workshop_allocations.html');
     } catch (error) {
         console.error('Error generating allocation file:', error);
-        alert(`Error generating allocation file: ${error.message || 'Unknown error occurred.'}`);
+        alert(`Fehler beim Generieren der Zuteilungs-Datei: ${error.message || 'Unbekannter Fehler aufgetreten.'}`);
     }
 };
 
 export const generateAllocationCSV = async (allocations) => {
     try {
         if (!allocations || (Array.isArray(allocations) && allocations.length === 0)) {
-            alert('No allocations available to generate the file.');
+            alert('Keine Zuteilung vorhanden.');
             return;
         }
 
@@ -164,14 +164,14 @@ export const generateAllocationCSV = async (allocations) => {
         saveAs(blob, 'workshop_allocations.csv');
     } catch (error) {
         console.error('Error generating CSV allocation file:', error);
-        alert(`Error generating CSV allocation file: ${error.message || 'Unknown error occurred.'}`);
+        alert(`Fehler beim Generieren der Zuteilungs-Datei: ${error.message || 'Unbekannter Fehler aufgetreten.'}`);
     }
 };
 
 export const generateAllocationDocx = async (allocations) => {
     try {
         if (!allocations || (Array.isArray(allocations) && allocations.length === 0)) {
-            alert("No allocations available to generate the file.");
+            alert('Keine Zuteilung vorhanden.');
             return;
         }
 
@@ -277,9 +277,6 @@ export const generateAllocationDocx = async (allocations) => {
         saveAs(blob, "workshop_allocations.docx");
     } catch (error) {
         console.error("Error generating DOCX allocation file:", error);
-        alert(
-            `Error generating DOCX allocation file: ${error.message || "Unknown error occurred."
-            }`
-        );
+        alert(`Fehler beim Generieren der Zuteilungs-Datei: ${error.message || 'Unbekannter Fehler aufgetreten.'}`);
     }
 };

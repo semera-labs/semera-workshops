@@ -95,26 +95,26 @@ export default function WorkshopEditor({ open, onClose }) {
 
     const columns = [
         { field: "id", headerName: "ID", width: 120, editable: false },
-        { field: "title", headerName: "Title", width: 200, editable: true },
+        { field: "title", headerName: "Titel", width: 200, editable: true },
         {
             field: "maxParticipants",
-            headerName: "Max Participants",
+            headerName: "Maximale Teilnehmerzahl",
             width: 200,
             editable: true,
             type: "number",
         },
         {
             field: "minParticipants",
-            headerName: "Min Participants",
+            headerName: "Minimale Teilnehmerzahl",
             width: 200,
             editable: true,
             type: "number",
         },
-        { field: "staff", headerName: "Staff", width: 250, editable: true },
+        { field: "staff", headerName: "Mitarbeiter", width: 250, editable: true },
         {
             field: "actions",
             type: "actions",
-            headerName: "Actions",
+            headerName: "Aktionen",
             width: 80,
             getActions: ({ id }) => [
                 <GridActionsCellItem
@@ -130,7 +130,7 @@ export default function WorkshopEditor({ open, onClose }) {
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-            <DialogTitle>Edit Workshops</DialogTitle>
+            <DialogTitle>Workshops bearbeiten</DialogTitle>
             <DialogContent style={{ height: "70vh" }}>
 
                 <DataGrid
@@ -145,12 +145,12 @@ export default function WorkshopEditor({ open, onClose }) {
                     startIcon={<AddIcon />}
                     onClick={handleAddWorkshop}
                 >
-                    Add Workshop
+                    Workshop hinzufügen
                 </Button>
                 <Button
                     onClick={async () => {
                         const confirmDelete = window.confirm(
-                            "Are you sure you want to delete all Workshops?"
+                            "Sind Sie sicher, dass Sie alle Workshops löschen möchten?"
                         );
                         if (!confirmDelete) return;
 
@@ -159,15 +159,15 @@ export default function WorkshopEditor({ open, onClose }) {
                             setWorkshops([]);
                         } catch (err) {
                             console.error("Error deleting all workshops:", err);
-                            alert("Failed to delete all workshops.");
+                            alert("Fehler beim löschen aller Workshops!");
                         }
                     }}
                     className="text-white hover:bg-red-600" color="error" variant="contained"
                 >
-                    Delete All
+                    Alle löschen
                 </Button>
                 <Button onClick={onClose} color="primary" variant="contained">
-                    Close
+                    Schließen
                 </Button>
             </DialogActions>
         </Dialog>

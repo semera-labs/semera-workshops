@@ -40,7 +40,7 @@ export default function SettingsDialog({ open, onClose }) {
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Typography variant="h6" sx={{ fontWeight: "bold" }} component="span">
-          Application Settings
+          Anwendungseinstellungen
         </Typography>
       </DialogTitle>
 
@@ -48,7 +48,7 @@ export default function SettingsDialog({ open, onClose }) {
         {/* Warning before delete */}
         <Box mb={3}>
           <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-            General
+            Allgemein
           </Typography>
           <FormControlLabel
             control={
@@ -59,7 +59,7 @@ export default function SettingsDialog({ open, onClose }) {
                 }
               />
             }
-            label="Warn before deleting entries"
+            label="Vor dem Löschen warnen"
           />
         </Box>
 
@@ -68,12 +68,12 @@ export default function SettingsDialog({ open, onClose }) {
         {/* Number of days */}
         <Box mt={3} mb={3}>
           <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-            Workshop Settings
+            Workshop Einstellungen
           </Typography>
           <Box sx={{ display: "flex", gap: 3 }}>
             <Box>
               <Typography variant="body2" sx={{ mb: 0.5 }}>
-                Number of days
+                Anzahl Tage
               </Typography>
               <Select
                 value={settings.numDays}
@@ -92,7 +92,7 @@ export default function SettingsDialog({ open, onClose }) {
 
             <Box>
               <Typography variant="body2" sx={{ mb: 0.5 }}>
-                Number of preferences
+                Anzahl Präferenzen
               </Typography>
               <Select
                 value={settings.numPreferences}
@@ -113,13 +113,13 @@ export default function SettingsDialog({ open, onClose }) {
       </DialogContent>
 
       <DialogActions sx={{ justifyContent: "space-between", px: 3 }}>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>Abbrechen</Button>
         <Button
           variant="contained"
           onClick={handleSave}
           sx={{ fontWeight: "bold" }}
         >
-          Save
+          Speichern
         </Button>
       </DialogActions>
     </Dialog>
