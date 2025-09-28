@@ -10,8 +10,10 @@ import { loadSettings, saveSettings } from "./settings.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+let win;
+
 async function createWindow() {
-    const win = new BrowserWindow({
+    win = new BrowserWindow({
         width: 1400,
         height: 800,
         icon: path.join(__dirname, "assets/icons/win/icon.ico"),
@@ -32,7 +34,7 @@ async function createWindow() {
     }
 }
 
-function createAppMenu(win) {
+function createAppMenu(win, hasAllocation = false) {
     const template = [
         {
             label: "File",
@@ -52,16 +54,17 @@ function createAppMenu(win) {
         {
             label: "Allocation",
             submenu: [
-                { label: "Allocate", id: "allocate", enabled: true, click: () => win.webContents.send("menu-allocate"), enabled: false },
-                { label: "Re-allocate", id: "reallocate", enabled: false, click: () => win.webContents.send("menu-reallocate"), enabled: false },
+                { label: "Allocate", id: "allocate", click: () => win.webContents.send("menu-allocate"), enabled: !hasAllocation },
+                { label: "Re-allocate", id: "reallocate", click: () => win.webContents.send("menu-reallocate"), enabled: hasAllocation },
                 { type: "separator" },
                 {
                     label: "Save Allocation",
                     submenu: [
-                        { label: "Save as HTML", click: () => win.webContents.send("menu-save-allocation-html"), enabled: false },
-                        { label: "Save as CSV", click: () => win.webContents.send("menu-save-allocation-csv"), enabled: false },
-                        { label: "Save as DOCX", click: () => win.webContents.send("menu-save-allocation-docx"), enabled: false },
-                    ]
+                        { label: "Save as HTML", click: () => win.webContents.send("menu-save-allocation-html"), enabled: hasAllocation },
+                        { label: "Save as CSV", click: () => win.webContents.send("menu-save-allocation-csv"), enabled: hasAllocation },
+                        { label: "Save as DOCX", click: () => win.webContents.send("menu-save-allocation-docx"), enabled: hasAllocation },
+                    ],
+                    enabled: hasAllocation
                 }
             ]
         },
@@ -129,6 +132,10 @@ ipcMain.handle("settings:load", () => {
 
 ipcMain.handle("settings:save", (event, newSettings) => {
     return saveSettings(newSettings);
+});
+
+ipcMain.on("allocation-state", (event, hasAllocation) => {
+    createAppMenu(win, hasAllocation);
 });
 
 ipcMain.handle("import-participants-dialog", async () => {

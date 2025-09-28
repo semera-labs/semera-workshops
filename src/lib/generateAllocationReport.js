@@ -10,9 +10,9 @@ import {
     HeadingLevel,
     AlignmentType,
 } from "docx";
-import API_BASE from "./api";
+import API_BASE from "./api.js";
 
-export const generateAllocationFile = async (numOfDays) => {
+export const generateAllocation = async (numOfDays = 1) => {
     try {
         const response = await axios.post(
             `http://${API_BASE}/api/workshops/allocate`,
@@ -28,6 +28,20 @@ export const generateAllocationFile = async (numOfDays) => {
 
         if (allocations.warnings && allocations.warnings.length > 0) {
             alert("Allocation Warnings:\n\n" + allocations.warnings.join("\n"));
+        }
+
+        return allocations;
+    } catch (error) {
+        console.error('Error generating allocation file:', error);
+        alert(`Error generating allocation: ${error.message || 'Unknown error occurred.'}`);
+    }
+}
+
+export const generateAllocationFile = async (allocations) => {
+    try {
+        if (!allocations || (Array.isArray(allocations) && allocations.length === 0)) {
+            alert('No allocations available to generate the file.');
+            return;
         }
 
         let htmlContent = `
@@ -104,22 +118,11 @@ export const generateAllocationFile = async (numOfDays) => {
     }
 };
 
-export const generateAllocationCSV = async (numOfDays) => {
+export const generateAllocationCSV = async (allocations) => {
     try {
-        const response = await axios.post(
-            `http://${API_BASE}/api/workshops/allocate`,
-            { numDays: numOfDays }
-        );
-        console.log('API Response:', response);
-        const allocations = response.data;
-
         if (!allocations || (Array.isArray(allocations) && allocations.length === 0)) {
             alert('No allocations available to generate the file.');
             return;
-        }
-
-        if (allocations.warnings && allocations.warnings.length > 0) {
-            alert("Allocation Warnings:\n\n" + allocations.warnings.join("\n"));
         }
 
 
@@ -165,21 +168,11 @@ export const generateAllocationCSV = async (numOfDays) => {
     }
 };
 
-export const generateAllocationDocx = async (numOfDays) => {
+export const generateAllocationDocx = async (allocations) => {
     try {
-        const response = await axios.post(
-            `http://${API_BASE}/api/workshops/allocate`,
-            { numDays: numOfDays }
-        );
-        const allocations = response.data;
-
         if (!allocations || (Array.isArray(allocations) && allocations.length === 0)) {
             alert("No allocations available to generate the file.");
             return;
-        }
-
-        if (allocations.warnings && allocations.warnings.length > 0) {
-            alert("Allocation Warnings:\n\n" + allocations.warnings.join("\n"));
         }
 
         const sections = [];

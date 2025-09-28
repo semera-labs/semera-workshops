@@ -3,7 +3,7 @@ import axios from 'axios';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import { saveAs } from 'file-saver';
 import { deDE } from '@mui/x-data-grid/locales';
-import { generateAllocationCSV, generateAllocationFile, generateAllocationDocx } from '../../lib/generateAllocationReport';
+import { generateAllocationCSV, generateAllocationFile, generateAllocationDocx, generateAllocation } from '../../lib/generateAllocationReport';
 import WorkshopEditor from "../../components/WorkshopEditor";
 import AutoModeIcon from '@mui/icons-material/AutoMode';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
@@ -24,6 +24,7 @@ export default function AdminView() {
     const [qrOpen, setQrOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [settings, setSettings] = useState({ warnBeforeDelete: true });
+    const [allocations, setAllocations] = useState(null);
 
     // Fetch submissions from the server
     const fetchSubmissions = async () => {
@@ -57,24 +58,14 @@ export default function AdminView() {
             window.electron.ipcRenderer.on("menu-edit-workshops", () => {
                 setOpenWorkshopEditor(true);
             });
-            window.electron.ipcRenderer.on("menu-refresh", () => {
-                fetchSubmissions();
-            });
-            window.electron.ipcRenderer.on("menu-export-preferences", () => {
-                exportData();
-            });
-            window.electron.ipcRenderer.on("menu-export-workshops", () => {
-                exportWorkshops();
-            });
-            window.electron.ipcRenderer.on("menu-import-workshops", () => {
-                importWorkshops();
-            });
-            window.electron.ipcRenderer.on("menu-import-participants", () => {
-                importParticipants();
-            });
-            window.electron.ipcRenderer.on("menu-import-preferences", () => {
-                importData();
-            });
+            window.electron.ipcRenderer.on("menu-refresh", fetchSubmissions);
+            window.electron.ipcRenderer.on("menu-export-preferences", exportData);
+            window.electron.ipcRenderer.on("menu-export-workshops", exportWorkshops);
+            window.electron.ipcRenderer.on("menu-import-workshops", importWorkshops);
+            window.electron.ipcRenderer.on("menu-import-participants", importParticipants);
+            window.electron.ipcRenderer.on("menu-import-preferences", importData);
+            window.electron.ipcRenderer.on("menu-allocate", handleAllocate);
+            window.electron.ipcRenderer.on("menu-reallocate", handleAllocate);
 
 
             window.electron.ipcRenderer.invoke("settings:load").then((loaded) => {
@@ -91,9 +82,19 @@ export default function AdminView() {
                 window.electron.ipcRenderer.removeAllListeners("menu-import-workshops");
                 window.electron.ipcRenderer.removeAllListeners("menu-import-preferences");
                 window.electron.ipcRenderer.removeAllListeners("menu-import-participants");
+                window.electron.ipcRenderer.removeAllListeners("menu-allocate");
+                window.electron.ipcRenderer.removeAllListeners("menu-reallocate");
+                window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-html");
+                window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-csv");
+                window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-docx");
             };
         }
     }, []);
+
+    const handleAllocate = async () => {
+        const data = await generateAllocation(selectedDays);
+        if (data.workshops) setAllocations(data.workshops);
+    };
 
     useEffect(() => {
         const handler = () => {
@@ -111,6 +112,21 @@ export default function AdminView() {
             window.electron?.ipcRenderer.removeAllListeners("menu-missing");
         };
     }, [submissions, people]);
+
+    useEffect(() => {
+        if (window.electron?.ipcRenderer) {
+            window.electron.ipcRenderer.send("allocation-state", Boolean(allocations));
+
+            window.electron.ipcRenderer.on("menu-save-allocation-html", () => { if (allocations) generateAllocationFile(allocations); });
+            window.electron.ipcRenderer.on("menu-save-allocation-csv", () => { if (allocations) generateAllocationCSV(allocations); });
+            window.electron.ipcRenderer.on("menu-save-allocation-docx", () => { if (allocations) generateAllocationDocx(allocations); });
+            return () => {
+                window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-html");
+                window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-csv");
+                window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-docx");
+            };
+        }
+    }, [allocations]);
 
 
     const handleSettingsClose = () => {
@@ -337,39 +353,6 @@ export default function AdminView() {
             <div className="min-h-screen flex flex-col p-4 bg-white w-full">
                 <div className="flex mb-4 justify-between items-end w-full">
                     <div className='flex'>
-                        <div className="flex flex-col items-center">
-                            <p className="font-semibold text-sm">Allocate</p>
-                            <div className="flex space-x-2">
-                                <button
-                                    className="p-2 hover:bg-gray-200"
-                                    onClick={() => generateAllocationFile(selectedDays)}
-                                >
-                                    <div className="flex items-center flex-col text-sm">
-                                        <AutoModeIcon fontSize='small' />
-                                        <span>HTML</span>
-                                    </div>
-                                </button>
-                                <button
-                                    className="p-2 hover:bg-gray-200"
-                                    onClick={() => generateAllocationCSV(selectedDays)}
-                                >
-                                    <div className="flex items-center flex-col text-sm">
-                                        <AutoModeIcon fontSize='small' />
-                                        <span>CSV</span>
-                                    </div>
-                                </button>
-                                <button
-                                    className="p-2 hover:bg-gray-200"
-                                    onClick={() => generateAllocationDocx(selectedDays)}
-                                >
-                                    <div className="flex items-center flex-col text-sm">
-                                        <AutoModeIcon fontSize='small' />
-                                        <span>DOCX</span>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-                        <div className="border-l border-gray-300 h-fill mx-2"></div>
                         <div className="flex flex-col items-center">
                             <p className="font-semibold text-sm">Options</p>
                             <div className="flex space-x-2">

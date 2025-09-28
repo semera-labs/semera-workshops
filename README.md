@@ -45,21 +45,15 @@ It is designed for **offline, LAN-based use** (no internet required). Participan
 
 ## 🚧 Roadmap / TODOs
 
-* [ ] Submit form should dynamically respect the configured number of preferences.
-* [ ] Allocation should be **stored once**; exports should only read, not reallocate.
-* [x] Warn admin when allocation leaves participants unassigned.
-* [ ] Add all options to the application menu bar.
-* [ ] Implement internationalization (i18n).
-* [x] Add menu entry for opening the submission form in a browser.
-* [x] (Add preference via Admin menu.) → Can be done by opening the submit form and adding an entry.
-* [x] Show confirmation before deleting submissions. (Disable in settings)
-* [x] Delete-all Buttons
-* [x] Secure `/admin` endpoint against LAN access (restrict to Electron app).
-* [ ] Apply custom icons and consistent headers across all windows.
-* [x] Add Bonjour/mDNS service broadcast for `.local` access.
-* [ ] Finalize build pipeline and product shipping process.
-* [ ] Favicon for submit page
-* [ ] Future Buddy-Feature
+- [ ] Submit form should dynamically respect the configured number of preferences.
+- [x] Allocation should be **stored once**; exports should only read, not reallocate.
+- [ ] Add all options to the application menu bar.
+- [ ] Implement internationalization (i18n).
+- [x] (Add preference via Admin menu.) → Can be done by opening the submit form and adding an entry.
+- [ ] Apply custom icons and consistent headers across all windows.
+- [ ] Finalize build pipeline and product shipping process.
+- [ ] Favicon for submit page
+- [ ] Future Buddy-Feature
 
 ## 📦 Project Structure
 
