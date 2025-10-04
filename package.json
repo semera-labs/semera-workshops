@@ -35,7 +35,7 @@
     "extraResources": [
       {
         "from": "manual.pdf",
-        "to": ".."
+        "to": "manual.pdf"
       }
     ],
     "directories": {
@@ -47,9 +47,11 @@
       "icon": "icons/win/icon.ico"
     },
     "mac": {
-      "target": "zip",
+      "target": "dir",
       "artifactName": "Semera-Workshops-${version}-mac.zip",
-      "icon": "icons/mac/icon.icns"
+      "icon": "icons/mac/icon.icns",
+      "minimumSystemVersion": "10.13",
+      "category": "public.app-category.utilities"
     }
   },
   "dependencies": {

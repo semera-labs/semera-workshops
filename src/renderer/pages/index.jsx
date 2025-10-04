@@ -33,7 +33,7 @@ export default function WorkshopPreferences() {
     const updateHeight = () => {
       setWindowHeight(`${window.innerHeight}px`);
     };
-  
+
     updateHeight();
     window.addEventListener('resize', updateHeight);
     return () => window.removeEventListener('resize', updateHeight);

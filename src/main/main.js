@@ -6,6 +6,7 @@ import { dirname } from "path";
 import os from "os";
 import fs from "fs";
 import { loadSettings, saveSettings } from "./settings.js";
+import http from "http";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -28,10 +29,38 @@ async function createWindow() {
 
     if (process.env.NODE_ENV === "development") {
         win.webContents.openDevTools();
-        await win.loadURL("http://localhost:5173/admin");
+        waitForServer('http://localhost:5173/admin', () => {
+            win.loadURL("http://localhost:5173/admin");
+        });
     } else {
-        await win.loadURL("http://localhost:3001/admin");
+        waitForServer('http://localhost:3001/admin', () => {
+            win.loadURL("http://localhost:3001/admin");
+        });
     }
+}
+
+function waitForServer(url, callback, retries = 10, interval = 500) {
+    let attempt = 0;
+
+    const check = () => {
+        http.get(url, res => {
+            if (res.statusCode === 200) {
+                callback();
+            } else {
+                retry();
+            }
+        }).on('error', retry);
+    };
+
+    const retry = () => {
+        if (attempt++ < retries) {
+            setTimeout(check, interval);
+        } else {
+            console.error('Server not responding after multiple attempts.');
+        }
+    };
+
+    check();
 }
 
 function createAppMenu(win, hasAllocation = false) {
@@ -90,7 +119,7 @@ function createAppMenu(win, hasAllocation = false) {
                 {
                     label: "Handbuch (PDF)",
                     click: () => {
-                        const manualPath = path.join(process.cwd(), "manual.pdf");
+                        const manualPath = getManualPath();
                         shell.openPath(manualPath);
                     }
                 },
@@ -116,6 +145,17 @@ function getLocalIp() {
         }
     }
     return "localhost";
+}
+
+function getManualPath() {
+    // In dev, the file is in your project root
+    // In packaged, it’s in process.resourcesPath
+    if (app.isPackaged) {
+        return path.join(process.resourcesPath, "manual.pdf");
+    } else {
+        return path.join(__dirname, "manual.pdf");
+        // or process.cwd(), depending on where your pdf lives in dev
+    }
 }
 
 ipcMain.handle("get-local-ip", () => {
