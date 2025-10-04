@@ -49,6 +49,9 @@ It is designed for **offline, LAN-based use** (no internet required). Participan
 - [ ] Implement internationalization (i18n).
 - [x] (Add preference via Admin menu.) → Can be done by opening the submit form and adding an entry.
 - [ ] Apply custom icons and consistent headers across all windows.
+- [ ] Notify User on network Change and restart Program
+- [ ] Make IP detection more robust and notify user if falling back to localhost
+- [ ] Instead of Displaying the qr codes i want to display an error message if the local ip could not be found or the bonjour service is not started
 - [ ] Create new Missing People Window Dialog.
 - [ ] Finalize build pipeline and product shipping process.
 - [ ] Future Buddy-Feature

@@ -46,7 +46,7 @@ export async function startServer(port = 3001) {
     await initDatabase();
 
     app.listen(port, () => {
-        console.log(`🚀 Server running at:`);
+        console.log(`Server running at:`);
         console.log(`   Local:   http://localhost:${port}`);
 
         // Advertise via Bonjour (mDNS)

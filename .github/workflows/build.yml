@@ -44,11 +44,12 @@ jobs:
           powershell Compress-Archive -Path dist/win-unpacked -DestinationPath dist/win-unpacked.zip -Force
 
       # --- macOS artifact ---
-      - name: Copy macOS .app bundle
+      - name: Zip .app using ditto (macOS only)
         if: runner.os == 'macOS' && !startsWith(github.ref, 'refs/tags/')
         run: |
           mkdir -p dist/artifacts
-          cp -R "dist/mac-arm64/"*.app dist/artifacts/
+          APP_NAME=$(ls dist/mac-arm64 | grep '.app$' | head -n 1)
+          ditto -c -k --sequesterRsrc --keepParent "dist/mac-arm64/$APP_NAME" "dist/artifacts/$APP_NAME.zip"
 
       - name: Upload build artifacts
         if: "!startsWith(github.ref, 'refs/tags/')"
@@ -57,4 +58,4 @@ jobs:
           name: app-${{ runner.os }}
           path: |
             dist/win-unpacked.zip
-            dist/artifacts/*.app
+            dist/artifacts/*.zip

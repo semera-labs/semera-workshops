@@ -148,13 +148,10 @@ function getLocalIp() {
 }
 
 function getManualPath() {
-    // In dev, the file is in your project root
-    // In packaged, it’s in process.resourcesPath
     if (app.isPackaged) {
         return path.join(process.resourcesPath, "manual.pdf");
     } else {
         return path.join(__dirname, "manual.pdf");
-        // or process.cwd(), depending on where your pdf lives in dev
     }
 }
 
