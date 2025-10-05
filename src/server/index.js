@@ -11,6 +11,8 @@ import Bonjour from "bonjour-service";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+let bonjourRunning = false;
+
 const app = express();
 app.use(express.json());
 
@@ -49,16 +51,29 @@ export async function startServer(port = 3001) {
         console.log(`Server running at:`);
         console.log(`   Local:   http://localhost:${port}`);
 
-        // Advertise via Bonjour (mDNS)
-        const bonjour = new Bonjour.Bonjour();
-        bonjour.publish({
-            name: "Semera Workshops", // Friendly name shown in network
-            type: "http",             // Protocol (http, https, tcp, etc.)
-            port,                     // Must match your Express port
-            txt: { app: "semera" },    // Optional metadata
-            host: "semera.local"
-        });
+        try {
+            const bonjour = new Bonjour.Bonjour();
+            bonjour.publish({
+                name: "Semera Workshops",
+                type: "http",
+                port,
+                txt: { app: "semera" },
+                host: "semera.local",
+            });
 
-        console.log(`Bonjour service published: http://semera.local:${port}`);
+            bonjourRunning = true;
+            console.log(`Bonjour service published: http://semera.local:${port}`);
+        } catch (err) {
+            bonjourRunning = false;
+            console.error("Failed to start Bonjour service:", err);
+        }
+    });
+
+    // Add this route near the bottom
+    app.get("/api/status", (req, res) => {
+        res.json({
+            bonjourRunning,
+            status: "ok",
+        });
     });
 }

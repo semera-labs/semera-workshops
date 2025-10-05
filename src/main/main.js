@@ -147,6 +147,7 @@ function getLocalIp() {
     return "localhost";
 }
 
+
 function getManualPath() {
     if (app.isPackaged) {
         return path.join(process.resourcesPath, "manual.pdf");
