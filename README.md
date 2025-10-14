@@ -52,6 +52,7 @@ It is designed for **offline, LAN-based use** (no internet required). Participan
 - [ ] Notify User on network Change and restart Program
 - [ ] Create new Missing People Window Dialog.
 - [ ] Finalize build pipeline and product shipping process.
+- [ ] Theming
 - [ ] Future Buddy-Feature
 
 ## 📦 Project Structure
