@@ -203,11 +203,60 @@ export default function AdminView() {
                     Kurs: p.Kurs || "",
                 }));
             } else if (path.endsWith(".csv")) {
-                const lines = content.split("\n").map((l) => l.trim()).filter(Boolean);
-                imported = lines.map((line) => {
-                    const [lastname, firstname] = line.split(",").map((s) => s.trim());
-                    return { Vorname: firstname, Name: lastname, Kurs: "" };
+                // --- CSV import ---
+                const lines = content.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                if (lines.length === 0) return alert("Leere CSV-Datei.");
+
+                // detect delimiter: use ; if it occurs more often than ,
+                const delimiter = (lines[0].split(";").length > lines[0].split(",").length) ? ";" : ",";
+
+                // split first line (possible header)
+                const headerCells = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
+
+                // header keywords we accept
+                const headerPatterns = [
+                    ["nachname", "vorname"],
+                    ["lastname", "firstname"],
+                    ["name", "firstname"],
+                ];
+
+                // check if first line looks like a header
+                const isHeader = headerPatterns.some(pattern =>
+                    pattern.every(keyword => headerCells.some(h => h.includes(keyword)))
+                );
+
+                // choose starting index for data
+                const startIndex = isHeader ? 1 : 0;
+
+                imported = lines.slice(startIndex).map(line => {
+                    const cells = line.split(delimiter).map(s => s.trim());
+                    // If more than two cells, just take first two meaningful ones
+                    const [col1, col2] = cells;
+
+                    // Determine which one is first name and last name if we had a header
+                    let firstname = col2;
+                    let lastname = col1;
+
+                    // If the file used "Firstname, Lastname" header order
+                    if (isHeader && headerCells[0].includes("vorname") || headerCells[0].includes("firstname")) {
+                        firstname = col1;
+                        lastname = col2;
+                    }
+
+                    return {
+                        Vorname: firstname || "",
+                        Name: lastname || "",
+                        Kurs: "",
+                    };
                 });
+            } else {
+                alert("Ungültiges Dateiformat. Bitte JSON oder CSV verwenden.");
+                return;
+            }
+
+            if (imported.length === 0) {
+                alert("Keine Teilnehmer gefunden.");
+                return;
             }
 
             await axios.post(`http://${API_BASE}/api/participants/import`, imported);

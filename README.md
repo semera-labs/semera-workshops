@@ -53,6 +53,12 @@ It is designed for **offline, LAN-based use** (no internet required). Participan
 - [ ] Create new Missing People Window Dialog.
 - [ ] Finalize build pipeline and product shipping process.
 - [ ] Theming
+- [ ] Fix Single/Multi-Day File generation (returned warnings messes with the data parsing)
+- [ ] Auto Refresh on new Submission
+- [ ] Extend Manual to explain things more in depth (Same Participant Name and Workshop name not possible)
+- [ ] Make allocation more robust
+- [ ] Display all errors to user
+- [ ] Remote Update/ Patch
 - [ ] Future Buddy-Feature
 
 ## 📦 Project Structure
