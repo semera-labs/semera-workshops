@@ -95,8 +95,8 @@ export default function AdminView() {
         const data = await generateAllocation(settings.numDays, settings.numPreferences);
         if (data.workshops) setAllocations(data.workshops);
         console.log(data.workshops)
-        if (data) setAllocations(data);
-        console.log(data)
+        if (data.schedule) setAllocations(data.schedule);
+        console.log(data.schedule)
     };
 
     useEffect(() => {

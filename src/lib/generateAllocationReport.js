@@ -171,34 +171,43 @@ export const generateAllocationCSV = async (allocations) => {
 export const generateAllocationDocx = async (allocations) => {
     try {
         if (!allocations || (Array.isArray(allocations) && allocations.length === 0)) {
-            alert('Keine Zuteilung vorhanden.');
+            alert("Keine Zuteilung vorhanden.");
             return;
         }
 
         const sections = [];
 
+        // Helper to safely build a table even if empty
+        const createParticipantTable = (participants = []) => {
+            const safeParticipants = participants.length > 0 ? participants : ["(keine Teilnehmer)"];
+            const rows = safeParticipants.map(
+                (p) =>
+                    new TableRow({
+                        children: [
+                            new TableCell({
+                                children: [new Paragraph({ text: p, style: "ArialNormal" })],
+                            }),
+                        ],
+                    })
+            );
+            return new Table({ rows });
+        };
+
         if (Array.isArray(allocations)) {
             // Single-day allocation
             allocations.forEach((workshop) => {
-                const rows = [
-                    ...workshop.participants.map(
-                        (p) =>
-                            new TableRow({
-                                children: [new TableCell({ children: [new Paragraph({ text: p, style: "ArialNormal", })] })],
-                            })
-                    ),
-                ];
+                const { title, participants = [] } = workshop;
 
                 sections.push({
                     properties: {},
                     children: [
                         new Paragraph({
-                            text: workshop.title,
+                            text: title || "(Unbenannter Workshop)",
                             heading: HeadingLevel.HEADING_1,
                             alignment: AlignmentType.CENTER,
-                            style: "ArialHeading"
+                            style: "ArialHeading",
                         }),
-                        new Table({ rows }),
+                        createParticipantTable(participants),
                         new Paragraph(""), // spacing
                     ],
                 });
@@ -208,25 +217,47 @@ export const generateAllocationDocx = async (allocations) => {
             const { schedule } = allocations;
 
             for (const [projectTitle, workshop] of Object.entries(schedule)) {
-                const days = Object.keys(workshop.days);
+                const days = Object.keys(workshop.days || {});
+                if (days.length === 0) continue;
+
                 const headerRow = new TableRow({
                     children: days.map(
-                        (day) => new TableCell({ children: [new Paragraph({ text: `Tag ${day}`, style: "ArialNormal", })] })
+                        (day) =>
+                            new TableCell({
+                                children: [new Paragraph({ text: `Tag ${day}`, style: "ArialNormal" })],
+                            })
                     ),
                 });
 
                 const maxRows = Math.max(
-                    ...days.map((day) => workshop.days[day]?.length || 0)
+                    ...days.map((day) => (workshop.days[day]?.length || 0))
                 );
 
                 const rows = [headerRow];
-                for (let i = 0; i < maxRows; i++) {
+                const hasAnyParticipant = days.some((day) => (workshop.days[day]?.length || 0) > 0);
+
+                if (hasAnyParticipant) {
+                    for (let i = 0; i < maxRows; i++) {
+                        rows.push(
+                            new TableRow({
+                                children: days.map((day) => {
+                                    const name = workshop.days[day]?.[i] || "";
+                                    return new TableCell({
+                                        children: [new Paragraph({ text: name, style: "ArialNormal" })],
+                                    });
+                                }),
+                            })
+                        );
+                    }
+                } else {
+                    // Empty placeholder row
                     rows.push(
                         new TableRow({
-                            children: days.map((day) => {
-                                const name = workshop.days[day]?.[i] || "";
-                                return new TableCell({ children: [new Paragraph({ text: name, style: "ArialNormal", })] });
-                            }),
+                            children: days.map(() =>
+                                new TableCell({
+                                    children: [new Paragraph({ text: "(keine Teilnehmer)", style: "ArialNormal" })],
+                                })
+                            ),
                         })
                     );
                 }
@@ -238,7 +269,7 @@ export const generateAllocationDocx = async (allocations) => {
                             text: projectTitle,
                             heading: HeadingLevel.HEADING_1,
                             alignment: AlignmentType.CENTER,
-                            style: "ArialHeading"
+                            style: "ArialHeading",
                         }),
                         new Table({ rows }),
                         new Paragraph(""), // spacing
@@ -256,7 +287,7 @@ export const generateAllocationDocx = async (allocations) => {
                         basedOn: "Normal",
                         run: {
                             font: "Arial",
-                            size: 24, // halbe Points, 24 = 12pt
+                            size: 24, // 12pt
                         },
                     },
                     {
@@ -271,12 +302,16 @@ export const generateAllocationDocx = async (allocations) => {
                     },
                 ],
             },
-            sections
+            sections,
         });
+
         const blob = await Packer.toBlob(doc);
         saveAs(blob, "workshop_allocations.docx");
     } catch (error) {
         console.error("Error generating DOCX allocation file:", error);
-        alert(`Fehler beim Generieren der Zuteilungs-Datei: ${error.message || 'Unbekannter Fehler aufgetreten.'}`);
+        alert(
+            `Fehler beim Generieren der Zuteilungs-Datei: ${error.message || "Unbekannter Fehler aufgetreten."
+            }`
+        );
     }
 };
