@@ -62,11 +62,14 @@ export async function allocateWorkshops(numDays = 1, maxPreferences = 5) {
 
         // Remove underfilled workshops
         const toReallocate = [];
+        const failedWorkshops = new Set();
 
         for (const [title, workshop] of Object.entries(workshopMap)) {
             if (workshop.participants.length < workshop.minParticipants) {
                 console.log(`Workshop "${title}" didn't meet minimum participants. Reallocating.`);
                 const displacedNames = workshop.participants;
+                failedWorkshops.add(title);
+
                 toReallocate.push(
                     ...submissionsData.filter((s) => displacedNames.includes(s.name))
                 );
@@ -86,7 +89,11 @@ export async function allocateWorkshops(numDays = 1, maxPreferences = 5) {
             let assigned = false;
             for (const preference of preferences) {
                 const workshop = workshopMap[preference];
-                if (workshop && workshop.participants.length < workshop.maxParticipants) {
+                if (
+                    workshop &&
+                    !failedWorkshops.has(preference) &&
+                    workshop.participants.length < workshop.maxParticipants
+                ) {
                     workshop.participants.push(submission.name);
                     assigned = true;
                     break;
@@ -98,7 +105,6 @@ export async function allocateWorkshops(numDays = 1, maxPreferences = 5) {
                 warnings.push(`Could not assign participant: ${submission.name}`);
             }
         });
-
         return {
             workshops: Object.values(workshopMap),
             warnings,
