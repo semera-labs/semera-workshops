@@ -10,3 +10,9 @@ html, body, #root {
 .unmatched-row {
     background-color: #ff7d7d !important;
 }
+
+.highlight-cell {
+  background-color: #d1fae5 !important; 
+  color: #065f46;
+  font-weight: bold;
+}

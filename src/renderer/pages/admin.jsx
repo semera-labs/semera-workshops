@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import { saveAs } from 'file-saver';
@@ -328,7 +328,16 @@ export default function AdminView() {
         };
     });
 
-    // Final column list with base + dynamic preference columns + actions
+    const isPreferenceMatched = (submissionName, preferenceName, allocations) => {
+        console.log(submissionName);
+        console.log(preferenceName);
+        console.log(allocations);
+        if (!allocations || !Array.isArray(allocations)) return false;
+        const workshop = allocations.find(w => w.title === preferenceName);
+        if (!workshop || !Array.isArray(workshop.participants)) return false;
+        return workshop.participants.some(n => n.toLowerCase() === submissionName.toLowerCase());
+    };
+
     const columns = [
         { field: 'name', headerName: 'Name', width: 200, editable: true },
         ...preferenceColumns,
@@ -372,7 +381,17 @@ export default function AdminView() {
                         processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)}
                         getRowClassName={(params) =>
                             params.row.matched ? '' : 'unmatched-row'
-                        } />
+                        }
+                        getCellClassName={(params) => {
+                            const { field, row } = params;
+                            if (['first', 'second', 'third', 'fourth'].includes(field)) {
+                                const matched = isPreferenceMatched(row.name, row[field], allocations);
+                                console.log(matched);
+                                return matched ? 'highlight-cell' : '';
+                            }
+                            return '';
+                        }}
+                    />
 
                 </div>
                 <div className="flex justify-between items-center mt-2 text-sm text-gray-600">
