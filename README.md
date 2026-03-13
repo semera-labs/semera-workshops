@@ -55,7 +55,11 @@ It is designed for **offline, LAN-based use** (no internet required). Participan
 - [ ] Theming
 - [ ] Fix Single/Multi-Day File generation (returned warnings messes with the data parsing)
 - [ ] Auto Refresh on new Submission
-- [ ] Extend Manual to explain things more in depth (Same Participant Name and Workshop name not possible)
+- [ ] Extend Manual to explain things more in depth (Same Participant Name and Workshop name not possible, works on 70-80% of mobile phones and why)
+- [ ] Display Staff Member and How many slots are full and location in the allocation report/ toggle this via the settings
+- [ ] Display how many first, second, third choices were selected next to the matched count
+- [ ] Allow for multiple allocation algorithms via settings
+- [ ] Grade on how good the allocation is
 - [ ] Make allocation more robust
 - [ ] Display all errors to user
 - [ ] Remote Update/ Patch
