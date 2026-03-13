@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import { saveAs } from 'file-saver';
@@ -378,9 +378,6 @@ export default function AdminView() {
     });
 
     const isPreferenceMatched = (submissionName, preferenceName, allocations) => {
-        console.log(submissionName);
-        console.log(preferenceName);
-        console.log(allocations);
         if (!allocations || !Array.isArray(allocations)) return false;
         const workshop = allocations.find(w => w.title === preferenceName);
         if (!workshop || !Array.isArray(workshop.participants)) return false;
@@ -435,7 +432,6 @@ export default function AdminView() {
                             const { field, row } = params;
                             if (['first', 'second', 'third', 'fourth'].includes(field)) {
                                 const matched = isPreferenceMatched(row.name, row[field], allocations);
-                                console.log(matched);
                                 return matched ? 'highlight-cell' : '';
                             }
                             return '';
