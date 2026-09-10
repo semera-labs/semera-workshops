@@ -1,6 +1,8 @@
+import {config} from "../server/config"
+
 const API_BASE =
     window.location.hostname === "localhost"
-        ? "localhost:3001"
-        : `${window.location.hostname}:3001`;
+        ? `localhost:${config.port}`
+        : `${window.location.hostname}:${config.port}`;
 
 export default API_BASE;

@@ -11,4 +11,5 @@ export const Workshop = sequelize.define('Workshop', {
     maxParticipants: DataTypes.INTEGER,
     minParticipants: DataTypes.INTEGER,
     staff: DataTypes.STRING,
+    location: DataTypes.STRING
 });

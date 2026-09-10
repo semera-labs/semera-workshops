@@ -83,6 +83,7 @@ export default function WorkshopEditor({ open, onClose }) {
             maxParticipants: 20,
             minParticipants: 5,
             staff: "",
+            location: ""
         };
 
         try {
@@ -94,7 +95,7 @@ export default function WorkshopEditor({ open, onClose }) {
     };
 
     const columns = [
-        { field: "id", headerName: "ID", width: 120, editable: false },
+        { field: "id", headerName: "ID", width: 50, editable: false },
         { field: "title", headerName: "Titel", width: 200, editable: true },
         {
             field: "maxParticipants",
@@ -110,7 +111,8 @@ export default function WorkshopEditor({ open, onClose }) {
             editable: true,
             type: "number",
         },
-        { field: "staff", headerName: "Mitarbeiter", width: 250, editable: true },
+        { field: "staff", headerName: "Mitarbeiter", width: 180, editable: true },
+        { field: "location", headerName: "Ort", width: 180, editable: true },
         {
             field: "actions",
             type: "actions",

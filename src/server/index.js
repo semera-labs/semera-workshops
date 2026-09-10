@@ -44,7 +44,7 @@ app.get(/^(?!\/api).*/, (req, res) => {
     res.sendFile(path.join(frontendPath, "index.html"));
 });
 
-export async function startServer(port = 3001) {
+export async function startServer(port = 80) {
     await initDatabase();
 
     app.listen(port, () => {

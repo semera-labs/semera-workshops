@@ -14,6 +14,7 @@ export async function createWorkshop(data) {
         maxParticipants: data.maxParticipants,
         minParticipants: data.minParticipants,
         staff: data.staff,
+        location: data.location,
     });
     return workshop;
 }
@@ -27,6 +28,7 @@ export async function updateWorkshop(id, data) {
         maxParticipants: data.maxParticipants,
         minParticipants: data.minParticipants,
         staff: data.staff,
+        location: data.location,
     });
 
     return workshop;

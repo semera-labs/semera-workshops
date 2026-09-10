@@ -10,6 +10,7 @@ import {
   Box,
   Alert,
 } from "@mui/material";
+import { config } from "../server/config";
 
 export default function QRDialog({ open, onClose }) {
   const [url, setUrl] = useState({ android: "", ios: "" });
@@ -29,7 +30,7 @@ export default function QRDialog({ open, onClose }) {
           // Get Bonjour status
           let bonjour = false;
           try {
-            const res = await fetch("http://localhost:3001/api/status");
+            const res = await fetch(`http://localhost:${config.port}/api/status`);
             if (res.ok) {
               const data = await res.json();
               bonjour = !!data.bonjourRunning;
@@ -52,19 +53,34 @@ export default function QRDialog({ open, onClose }) {
           // Decide which URLs to show
           if ((!ip || ip.includes("localhost")) && !bonjour) {
             // Neither IP nor Bonjour works
-            setUrl({ android: "http://localhost:3001", ios: "http://localhost:3001" });
+            setUrl({ android: `http://localhost:${config.port}`, ios: `http://localhost:${config.port}` });
           } else if (!ip || ip.includes("localhost")) {
             // IP failed but Bonjour works → show only iOS
-            setUrl({ android: "", ios: "http://semera.local:3001" });
+            if (config.port === 80){
+              setUrl({ android: "", ios: `http://semera.local` });
+            } else {
+              setUrl({ android: "", ios: `http://semera.local:${config.port}` });
+            }
           } else if (!bonjour) {
             // Bonjour failed → show same IP for all devices
-            setUrl({ android: `http://${ip}:3001`, ios: `http://${ip}:3001` });
+            if (config.port === 80){
+              setUrl({ android: `http://${ip}`, ios: `http://${ip}` });
+            } else {
+              setUrl({ android: `http://${ip}:${config.port}`, ios: `http://${ip}:${config.port}` });
+            }
           } else {
-            // All good
-            setUrl({
-              android: `http://${ip}:3001`,
-              ios: `http://semera.local:3001`,
+            if (config.port === 80){
+              setUrl({
+              android: `http://${ip}`,
+              ios: `http://semera.local`,
             });
+            // All good
+            } else {
+            setUrl({
+              android: `http://${ip}:${config.port}`,
+              ios: `http://semera.local:${config.port}`,
+            });
+          }
           }
 
           if (errors.length > 0) {
@@ -75,8 +91,8 @@ export default function QRDialog({ open, onClose }) {
         } else {
           console.warn("Electron API not available - running in browser dev mode");
           setUrl({
-            android: "http://localhost:3001",
-            ios: "http://localhost:3001",
+            android: `http://localhost:${config.port}`,
+            ios: `http://localhost:${config.port}`,
           });
           setError("Electron-API nicht verfügbar (Browser-Modus).");
         }

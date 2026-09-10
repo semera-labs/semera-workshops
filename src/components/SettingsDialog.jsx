@@ -14,6 +14,13 @@ import {
   Divider,
 } from "@mui/material";
 
+// Add enable/disable bonjour service (check if working?)
+// Add Count/ Max participants, staff, room to report generation add settings
+// make allocation algorithm better
+// Own Dialog for missing participants
+// Set port?
+
+
 export default function SettingsDialog({ open, onClose }) {
   const [settings, setSettings] = useState({
     warnBeforeDelete: true,

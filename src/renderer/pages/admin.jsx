@@ -21,6 +21,58 @@ export default function AdminView() {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [settings, setSettings] = useState({ warnBeforeDelete: true, numDays: 1, numPreferences: 3 });
     const [allocations, setAllocations] = useState(null);
+    const [workshops, setWorkshops] = useState([]);
+
+    const updateAllocation = (personName, newWorkshop) => {
+        setAllocations((prev) => {
+            let updated = prev ? [...prev] : [];
+
+            // Remove the person from all other workshops
+            updated = updated.map(w => ({
+                ...w,
+                participants: w.participants.filter(p => p.toLowerCase() !== personName.toLowerCase())
+            }));
+
+            // Find or create target workshop
+            let target = updated.find(w => w.title === newWorkshop);
+            if (!target) {
+                target = { title: newWorkshop, participants: [] };
+                updated.push(target);
+            }
+
+            // Add the person to the target workshop
+            if (!target.participants.some(p => p.toLowerCase() === personName.toLowerCase())) {
+                target.participants = [...target.participants, personName];
+            }
+
+            return updated;
+        });
+    };
+    const fetchWorkshops = async () => {
+  try {
+    const response = await axios.get(`http://${API_BASE}/api/workshops`);
+    setWorkshops(response.data); // data should include title and maxParticipants
+  } catch (err) {
+    console.error("Error fetching workshops:", err);
+  }
+};
+
+const getWorkshopCounts = () => {
+  const counts = {};
+  if (!allocations || workshops.length === 0) return counts;
+
+  workshops.forEach(w => {
+    const allocation = allocations.find(a => a.title === w.title);
+    const count = allocation?.participants?.length || 0;
+    counts[w.title] = {
+      count,
+      max: w.maxParticipants,
+      overfilled: count > (w.maxParticipants || Infinity),
+    };
+  });
+
+  return counts;
+};
 
     // Fetch submissions from the server
     const fetchSubmissions = async () => {
@@ -42,8 +94,26 @@ export default function AdminView() {
     };
 
     useEffect(() => {
+        if (!window.electron?.ipcRenderer) {
+            console.warn("ipcRenderer not available yet!");
+            return;
+        }
+
+        const handler = ({ name, workshop }) => {
+            updateAllocation(name, workshop);
+        };
+
+        window.electron.ipcRenderer.on("context-assign", handler);
+
+        return () => {
+            window.electron.ipcRenderer.removeListener("context-assign", handler);
+        };
+    }, []);
+
+    useEffect(() => {
         fetchSubmissions(); // Fetch data on component mount
         fetchParticipants();
+        fetchWorkshops(); 
         if (window.electron?.ipcRenderer) {
             window.electron.ipcRenderer.on("menu-settings", () => {
                 setSettingsOpen(true);
@@ -82,21 +152,30 @@ export default function AdminView() {
     useEffect(() => {
         if (window.electron?.ipcRenderer) {
             window.electron.ipcRenderer.on("menu-allocate", handleAllocate);
-            window.electron.ipcRenderer.on("menu-reallocate", handleAllocate);
+            window.electron.ipcRenderer.on("menu-reallocate", () => handleAllocate(true));
+            const handleReset = () => resetAllocations();
+            window.electron.ipcRenderer.on("menu-reset-allocation", handleReset);
+
 
             return () => {
                 window.electron.ipcRenderer.removeAllListeners("menu-allocate");
                 window.electron.ipcRenderer.removeAllListeners("menu-reallocate");
+                window.electron.ipcRenderer.removeAllListeners("menu-reset-allocation");
             };
         }
     }, [settings]);
 
-    const handleAllocate = async () => {
-        const data = await generateAllocation(settings.numDays, settings.numPreferences);
+    const handleAllocate = async (reallocate = false) => {
+        const data = await generateAllocation(settings.numDays, settings.numPreferences, !reallocate ? allocations : []);
         if (data.workshops) setAllocations(data.workshops);
         console.log(data.workshops)
         if (data.schedule) setAllocations(data.schedule);
         console.log(data.schedule)
+    };
+
+    const resetAllocations = () => {
+        setAllocations([]); // clear all allocations
+        window.electron?.ipcRenderer?.send("allocation-state", false); // optional: notify main process
     };
 
     useEffect(() => {
@@ -374,6 +453,23 @@ export default function AdminView() {
             headerName: labelMap[index] || `Wahl ${index + 1}`,
             width: 160,
             editable: true,
+
+            renderCell: (params) => (
+                <div
+                    style={{ width: "100%", height: "100%" }}
+                    onContextMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+
+                        window.electron?.ipcRenderer?.send("show-context-menu", {
+                            name: params.row.name,
+                            workshop: params.value
+                        });
+                    }}
+                >
+                    {params.value}
+                </div>
+            )
         };
     });
 
@@ -409,35 +505,55 @@ export default function AdminView() {
     return (
         <>
             <div className="min-h-screen flex flex-col p-4 bg-white w-full">
-                <div style={{ height: '87vh', width: '100%' }}>
-                    <DataGrid rows={submissions.map((submission) => {
-                        const matched = isNameMatched(submission.name);
-                        return {
-                            id: submission.id,
-                            name: submission.name,
-                            first: submission.preferences.first,
-                            second: submission.preferences.second,
-                            third: submission.preferences.third,
-                            fourth: submission.preferences.fourth,
-                            matched,
-                        }
-                    })}
-                        columns={columns} pageSize={5}
-                        localeText={deDE.components.MuiDataGrid.defaultProps.localeText}
-                        processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)}
-                        getRowClassName={(params) =>
-                            params.row.matched ? '' : 'unmatched-row'
-                        }
-                        getCellClassName={(params) => {
-                            const { field, row } = params;
-                            if (['first', 'second', 'third', 'fourth'].includes(field)) {
-                                const matched = isPreferenceMatched(row.name, row[field], allocations);
-                                return matched ? 'highlight-cell' : '';
+                <div className="flex w-full h-full">
+                    <div style={{ height: '87vh', width: '100%' }}>
+                        <DataGrid rows={submissions.map((submission) => {
+                            const matched = isNameMatched(submission.name);
+                            return {
+                                id: submission.id,
+                                name: submission.name,
+                                first: submission.preferences.first,
+                                second: submission.preferences.second,
+                                third: submission.preferences.third,
+                                fourth: submission.preferences.fourth,
+                                matched
                             }
-                            return '';
-                        }}
-                    />
+                        })}
+                            columns={columns} pageSize={5}
+                            localeText={deDE.components.MuiDataGrid.defaultProps.localeText}
+                            processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)}
+                            getRowClassName={(params) =>
+                                params.row.matched ? '' : 'unmatched-row'
+                            }
+                            getCellClassName={(params) => {
+                                const { field, row } = params;
+                                if (['first', 'second', 'third', 'fourth'].includes(field)) {
+                                    const matched = isPreferenceMatched(row.name, row[field], allocations);
+                                    return matched ? 'highlight-cell' : '';
+                                }
+                                return '';
+                            }}
+                        />
 
+                    </div>
+                    {/* RIGHT PANEL */}
+                    <div className="w-64 ml-4 p-3 border rounded bg-gray-50 overflow-y-auto">
+                        <h3 className="font-bold mb-2">Workshop Counts</h3>
+
+                        {Object.entries(getWorkshopCounts()).map(([name, info]) => (
+                          <div
+                            key={name}
+                            className={`flex justify-between text-sm py-1 ${
+                              info.overfilled ? 'text-red-600 font-bold' : ''
+                            }`}
+                          >
+                            <span>{name}</span>
+                            <span className="font-semibold">
+                              {info.count}/{info.max || '-'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                 </div>
                 <div className="flex justify-between items-center mt-2 text-sm text-gray-600">
                     <div>

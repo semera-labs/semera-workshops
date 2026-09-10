@@ -44,6 +44,15 @@ export const generateAllocationFile = async (allocations) => {
             return;
         }
 
+        // --- Fetch workshops to get correct maxParticipants ---
+        const response = await fetch(`http://${API_BASE}/api/workshops`);
+        const workshopsData = await response.json();
+
+        const workshopMaxMap = {};
+        workshopsData.forEach(ws => {
+            workshopMaxMap[ws.title] = ws.maxParticipants;
+        });
+
         let htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -59,30 +68,51 @@ export const generateAllocationFile = async (allocations) => {
             th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
             th { background-color: #f9f9f9; }
             .day-label { font-weight: bold; margin-bottom: 5px; }
+
+            /* pagebreak helper */
+            @media print {
+                .pagebreak {
+                    page-break-before: always;
+                }
+            }
             </style>
         </head>
         <body>
         `;
 
         if (Array.isArray(allocations)) {
-            // Single-day allocation
-            allocations.forEach((workshop) => {
+            // --- Single-day allocation ---
+            allocations.forEach((workshop, index) => {
+                if (workshop.participants.length > 0) {
+                const maxParticipants = workshopMaxMap[workshop.title] ?? '-';
+
                 htmlContent += `
-                <h2>${workshop.title} (${workshop.staff})</h2>
+                ${index !== 0 ? '<div class="pagebreak"></div>' : ''}
+                <h2>
+                    ${workshop.title} (${workshop.staff}) 
+                    ${workshop.participants.length}/${maxParticipants}
+                </h2>
                 <table>
                     <tr><th>Name</th></tr>
                 `;
+
                 workshop.participants.forEach((participant) => {
                     htmlContent += `<tr><td>${participant}</td></tr>`;
                 });
+
                 htmlContent += `</table>`;
+                }
             });
+
         } else if (allocations.schedule) {
-            // Multi-day allocation
+            // --- Multi-day allocation ---
             const { schedule } = allocations;
+
+            let first = true;
 
             for (const [projectTitle, workshop] of Object.entries(schedule)) {
                 htmlContent += `
+                ${!first ? '<div class="pagebreak"></div>' : ''}
                 <div class="project-container">
                     <h2>${projectTitle} (${workshop.staff})</h2>
                     <div class="day-tables">
@@ -99,19 +129,24 @@ export const generateAllocationFile = async (allocations) => {
                             <table>
                                 <tr><th>Name</th></tr>
                     `;
+
                     participants.forEach((participant) => {
                         htmlContent += `<tr><td>${participant}</td></tr>`;
                     });
+
                     htmlContent += `</table></div>`;
                 }
 
                 htmlContent += `</div></div>`;
+                first = false;
             }
         }
 
         htmlContent += `</body></html>`;
+
         const blob = new Blob([htmlContent], { type: 'text/html' });
         saveAs(blob, 'workshop_allocations.html');
+
     } catch (error) {
         console.error('Error generating allocation file:', error);
         alert(`Fehler beim Generieren der Zuteilungs-Datei: ${error.message || 'Unbekannter Fehler aufgetreten.'}`);

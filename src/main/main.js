@@ -7,6 +7,7 @@ import os from "os";
 import fs from "fs";
 import { loadSettings, saveSettings } from "./settings.js";
 import http from "http";
+import { config } from "../server/config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -33,8 +34,8 @@ async function createWindow() {
             win.loadURL("http://localhost:5173/admin");
         });
     } else {
-        waitForServer('http://localhost:3001/admin', () => {
-            win.loadURL("http://localhost:3001/admin");
+        waitForServer(`http://localhost:${config.port}/admin`, () => {
+            win.loadURL(`http://localhost:${config.port}/admin`);
         });
     }
 }
@@ -85,8 +86,9 @@ function createAppMenu(win, hasAllocation = false) {
         {
             label: "Zuteilungen",
             submenu: [
-                { label: "Zuteilung", id: "allocate", click: () => win.webContents.send("menu-allocate"), enabled: !hasAllocation },
+                { label: "Zuteilung", id: "allocate", click: () => win.webContents.send("menu-allocate")},
                 { label: "Neu-Zuteilung", id: "reallocate", click: () => win.webContents.send("menu-reallocate"), enabled: hasAllocation },
+                { label: "Zuweisung zurücksetzen", click: () => {win.webContents.send("menu-reset-allocation");}, enabled: hasAllocation },
                 { type: "separator" },
                 {
                     label: "Zuteilung speichern",
@@ -106,7 +108,7 @@ function createAppMenu(win, hasAllocation = false) {
                 {
                     label: "Abgabe Formular öffnen…",
                     click: () => {
-                        shell.openExternal("http://localhost:3001");
+                        shell.openExternal(`http://localhost:${config.port}`);
                     },
                 },
                 { label: "Fehlende Teilnehmer…", click: () => win.webContents.send("menu-missing") },
@@ -138,7 +140,7 @@ function getLocalIp() {
     for (const name of Object.keys(nets)) {
         for (const net of nets[name]) {
             if (net.family === "IPv4" && !net.internal) {
-                if (/^(192\.168|10\.)/.test(net.address)) {
+                if (/^(192\.168|10\.|172\.(1[6-9]|2\d|3[0-1]))\./) {
                     return net.address;
                 }
             }
@@ -219,8 +221,23 @@ ipcMain.handle("import-workshops-dialog", async () => {
     return { content, path: filePaths[0] };
 });
 
+ipcMain.on("show-context-menu", (event, data) => {
+    const menu = Menu.buildFromTemplate([
+        {
+            label: "Zuweisen",
+            click: () => {
+                event.sender.send("context-assign", data);
+            }
+        }
+    ]);
+
+    menu.popup({
+        window: BrowserWindow.fromWebContents(event.sender)
+    });
+});
+
 app.whenReady().then(() => {
-    startServer(3001);
+    startServer(config.port);
     createWindow();
 });
 
@@ -228,7 +245,7 @@ app.setAboutPanelOptions({
     applicationName: "Semera Workshops",
     applicationVersion: app.getVersion(),
     version: "1.0.0", // optional MacOS
-    copyright: "© 2025 Semera",
+    copyright: "© 2026 Semera",
     credits: "Jan Schulz-Nigmann",
     iconPath: "../assets/semera_workshops_48.png",
 });
