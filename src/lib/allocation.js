@@ -198,8 +198,8 @@ function singleDayAllocation(
     };
 }
 
-function multiDayAllocation(submissionsData, workshopsData, warnings, getPreferences, days){
-        const workshopSchedule = {};
+function multiDayAllocation(submissionsData, workshopsData, warnings, getPreferences, days) {
+    const workshopSchedule = {};
     for (const workshop of workshopsData) {
         workshopSchedule[workshop.title] = {
             id: workshop.id,
@@ -207,62 +207,87 @@ function multiDayAllocation(submissionsData, workshopsData, warnings, getPrefere
             staff: workshop.staff,
             maxParticipants: workshop.maxParticipants,
             minParticipants: workshop.minParticipants,
-            days: {}
+            days: {},
         };
+
         for (const day of days) {
             workshopSchedule[workshop.title].days[day] = [];
         }
     }
 
     function shuffle(array) {
-        for (let i = array.length - 1; i > 0; i--) {
+        const copy = [...array];
+        for (let i = copy.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
+            [copy[i], copy[j]] = [copy[j], copy[i]];
         }
-        return array;
+        return copy;
     }
 
     const studentAllocations = {};
+    const shuffledSubmissions = shuffle(submissionsData);
 
-    for (const submission of submissionsData) {
-        let preferences = getPreferences(submission);
-        preferences = shuffle(preferences);
+    for (const submission of shuffledSubmissions) {
+        const preferences = getPreferences(submission);
 
         const allocated = [];
-        const usedDays = new Set();
         const usedProjects = new Set();
 
-        for (const pref of preferences) {
-            if (allocated.length >= days.length) break;
+        for (const day of days) {
+            let assignedForThisDay = false;
 
-            for (const day of days) {
-                if (usedDays.has(day)) continue;
+            for (const pref of preferences) {
+                if (usedProjects.has(pref)) continue;
 
-                const workshop = workshopsData.find(w => w.title === pref);
-                const projectDay = workshopSchedule[pref]?.days?.[day];
+                const workshop = workshopSchedule[pref];
 
-                if (
-                    projectDay &&
-                    projectDay.length < workshop.maxParticipants &&
-                    !usedProjects.has(pref)
-                ) {
-                    projectDay.push(submission.name);
-                    allocated.push({ project: pref, day });
-                    usedDays.add(day);
+                if (!workshop) {
+                    continue;
+                }
+
+                const participantsForDay = workshop.days[day];
+
+                if (participantsForDay.length < workshop.maxParticipants) {
+                    participantsForDay.push(submission.name);
+
+                    allocated.push({
+                        day,
+                        project: pref,
+                    });
+
                     usedProjects.add(pref);
+                    assignedForThisDay = true;
                     break;
                 }
             }
-        }
 
-        if (allocated.length < days.length) {
-            warnings.push(`Could not allocate all ${days.length} preferences for ${submission.name}`);
+            if (!assignedForThisDay) {
+                warnings.push(
+                    `Could not assign ${submission.name} on day ${day}`
+                );
+            }
         }
 
         studentAllocations[submission.name] = allocated;
     }
 
+    // Optional: warn about underfilled workshop days
+    for (const workshop of Object.values(workshopSchedule)) {
+        for (const day of days) {
+            const count = workshop.days[day].length;
+
+            if (count > 0 && count < workshop.minParticipants) {
+                warnings.push(
+                    `Workshop "${workshop.title}" on day ${day} has only ${count} participant(s), below minimum ${workshop.minParticipants}.`
+                );
+            }
+        }
+    }
+
     return {
+        mode: "multi-day",
+        numDays,
+        maxPreferences,
         schedule: workshopSchedule,
         allocations: studentAllocations,
         warnings,
@@ -284,7 +309,7 @@ function balancedRandomAllocation(submissionsData, workshopsData, warnings) {
     });
 
     const activeWorkshops = Object.values(workshopMap);
-    
+
     // 2. Teilnehmer zufällig mischen (Fisher-Yates Shuffle)
     const shuffledSubmissions = [...submissionsData];
     for (let i = shuffledSubmissions.length - 1; i > 0; i--) {

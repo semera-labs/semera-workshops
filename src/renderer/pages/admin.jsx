@@ -10,12 +10,16 @@ import QRDialog from "../../components/QRDialog";
 import API_BASE from "../../lib/api.js";
 import SettingsDialog from "../../components/SettingsDialog";
 import { Button } from "@mui/material";
+import UnmatchedDialog from '../../components/UnmatchedDialog.jsx';
 
 export default function AdminView() {
     const [submissions, setSubmissions] = useState([]);
 
     const [openWorkshopEditor, setOpenWorkshopEditor] = useState(false);
     const [people, setPeople] = useState([]);
+
+    const [unmatchedOpen, setUnmatchedOpen] = useState(false);
+    const [unmatchedList, setUnmatchedList] = useState([]);
 
     const [qrOpen, setQrOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -49,30 +53,30 @@ export default function AdminView() {
         });
     };
     const fetchWorkshops = async () => {
-  try {
-    const response = await axios.get(`http://${API_BASE}/api/workshops`);
-    setWorkshops(response.data); // data should include title and maxParticipants
-  } catch (err) {
-    console.error("Error fetching workshops:", err);
-  }
-};
-
-const getWorkshopCounts = () => {
-  const counts = {};
-  if (!allocations || workshops.length === 0) return counts;
-
-  workshops.forEach(w => {
-    const allocation = allocations.find(a => a.title === w.title);
-    const count = allocation?.participants?.length || 0;
-    counts[w.title] = {
-      count,
-      max: w.maxParticipants,
-      overfilled: count > (w.maxParticipants || Infinity),
+        try {
+            const response = await axios.get(`http://${API_BASE}/api/workshops`);
+            setWorkshops(response.data); // data should include title and maxParticipants
+        } catch (err) {
+            console.error("Error fetching workshops:", err);
+        }
     };
-  });
 
-  return counts;
-};
+    const getWorkshopCounts = () => {
+        const counts = {};
+        if (!allocations || workshops.length === 0) return counts;
+
+        workshops.forEach(w => {
+            const allocation = allocations.find(a => a.title === w.title);
+            const count = allocation?.participants?.length || 0;
+            counts[w.title] = {
+                count,
+                max: w.maxParticipants,
+                overfilled: count > (w.maxParticipants || Infinity),
+            };
+        });
+
+        return counts;
+    };
 
     // Fetch submissions from the server
     const fetchSubmissions = async () => {
@@ -113,7 +117,7 @@ const getWorkshopCounts = () => {
     useEffect(() => {
         fetchSubmissions(); // Fetch data on component mount
         fetchParticipants();
-        fetchWorkshops(); 
+        fetchWorkshops();
         if (window.electron?.ipcRenderer) {
             window.electron.ipcRenderer.on("menu-settings", () => {
                 setSettingsOpen(true);
@@ -181,11 +185,8 @@ const getWorkshopCounts = () => {
     useEffect(() => {
         const handler = () => {
             const missing = getUnmatchedNames();
-            if (missing.length === 0) {
-                alert('Alle Namen abgeglichen!');
-            } else {
-                alert(`Fehlende Namen:\n\n${missing.join('\n')}`);
-            }
+            setUnmatchedList(missing);
+            setUnmatchedOpen(true);
         };
 
         window.electron?.ipcRenderer.on("menu-missing", handler);
@@ -474,10 +475,36 @@ const getWorkshopCounts = () => {
     });
 
     const isPreferenceMatched = (submissionName, preferenceName, allocations) => {
-        if (!allocations || !Array.isArray(allocations)) return false;
-        const workshop = allocations.find(w => w.title === preferenceName);
-        if (!workshop || !Array.isArray(workshop.participants)) return false;
-        return workshop.participants.some(n => n.toLowerCase() === submissionName.toLowerCase());
+        if (!allocations || !preferenceName) return false;
+
+        // Single-day mode
+        const workshops = Array.isArray(allocations)
+            ? allocations
+            : allocations.workshops;
+
+        if (Array.isArray(workshops)) {
+            const workshop = workshops.find(w => w.title === preferenceName);
+            if (!workshop || !Array.isArray(workshop.participants)) return false;
+
+            return workshop.participants.some(
+                n => n.toLowerCase() === submissionName.toLowerCase()
+            );
+        }
+
+        // Multi-day mode
+        if (allocations.schedule) {
+            const workshop = allocations.schedule[preferenceName];
+            if (!workshop || !workshop.days) return false;
+
+            return Object.values(workshop.days).some(dayParticipants =>
+                Array.isArray(dayParticipants) &&
+                dayParticipants.some(
+                    n => n.toLowerCase() === submissionName.toLowerCase()
+                )
+            );
+        }
+
+        return false;
     };
 
     const columns = [
@@ -541,19 +568,18 @@ const getWorkshopCounts = () => {
                         <h3 className="font-bold mb-2">Workshop Counts</h3>
 
                         {Object.entries(getWorkshopCounts()).map(([name, info]) => (
-                          <div
-                            key={name}
-                            className={`flex justify-between text-sm py-1 ${
-                              info.overfilled ? 'text-red-600 font-bold' : ''
-                            }`}
-                          >
-                            <span>{name}</span>
-                            <span className="font-semibold">
-                              {info.count}/{info.max || '-'}
-                            </span>
-                          </div>
+                            <div
+                                key={name}
+                                className={`flex justify-between text-sm py-1 ${info.overfilled ? 'text-red-600 font-bold' : ''
+                                    }`}
+                            >
+                                <span>{name}</span>
+                                <span className="font-semibold">
+                                    {info.count}/{info.max || '-'}
+                                </span>
+                            </div>
                         ))}
-                      </div>
+                    </div>
                 </div>
                 <div className="flex justify-between items-center mt-2 text-sm text-gray-600">
                     <div>
@@ -585,6 +611,11 @@ const getWorkshopCounts = () => {
                 />
                 <QRDialog open={qrOpen} onClose={() => setQrOpen(false)} />
                 <SettingsDialog open={settingsOpen} onClose={handleSettingsClose} />
+                <UnmatchedDialog
+                    open={unmatchedOpen}
+                    onClose={() => setUnmatchedOpen(false)}
+                    unmatchedNames={unmatchedList}
+                />
             </div>
         </>
     );

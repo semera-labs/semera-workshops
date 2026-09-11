@@ -84,9 +84,9 @@ export const generateAllocationFile = async (allocations) => {
             // --- Single-day allocation ---
             allocations.forEach((workshop, index) => {
                 if (workshop.participants.length > 0) {
-                const maxParticipants = workshopMaxMap[workshop.title] ?? '-';
+                    const maxParticipants = workshopMaxMap[workshop.title] ?? '-';
 
-                htmlContent += `
+                    htmlContent += `
                 ${index !== 0 ? '<div class="pagebreak"></div>' : ''}
                 <h2>
                     ${workshop.title} (${workshop.staff}) 
@@ -96,11 +96,11 @@ export const generateAllocationFile = async (allocations) => {
                     <tr><th>Name</th></tr>
                 `;
 
-                workshop.participants.forEach((participant) => {
-                    htmlContent += `<tr><td>${participant}</td></tr>`;
-                });
+                    workshop.participants.forEach((participant) => {
+                        htmlContent += `<tr><td>${participant}</td></tr>`;
+                    });
 
-                htmlContent += `</table>`;
+                    htmlContent += `</table>`;
                 }
             });
 
@@ -163,9 +163,13 @@ export const generateAllocationCSV = async (allocations) => {
 
         let csvContent = '';
 
-        if (Array.isArray(allocations)) {
+        if (Array.isArray(allocations) || allocations.workshops) {
             // Single-day allocation
-            allocations.forEach((workshop) => {
+            const workshops = Array.isArray(allocations)
+                ? allocations
+                : allocations.workshops;
+
+            workshops.forEach((workshop) => {
                 csvContent += `"${workshop.title} (${workshop.staff})"\n`;
                 csvContent += 'Name\n';
                 workshop.participants.forEach((participant) => {
@@ -228,9 +232,13 @@ export const generateAllocationDocx = async (allocations) => {
             return new Table({ rows });
         };
 
-        if (Array.isArray(allocations)) {
+        if (Array.isArray(allocations) || allocations.workshops) {
             // Single-day allocation
-            allocations.forEach((workshop) => {
+            const workshops = Array.isArray(allocations)
+                ? allocations
+                : allocations.workshops;
+
+            workshops.forEach((workshop) => {
                 const { title, participants = [] } = workshop;
 
                 sections.push({

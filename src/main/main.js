@@ -1,265 +1,1372 @@
-import { app, BrowserWindow, ipcMain, Menu, shell, dialog } from "electron";
+import {
+    app,
+    BrowserWindow,
+    ipcMain,
+    Menu,
+    shell,
+    dialog,
+} from "electron";
+
 import path from "path";
-import { startServer } from "../server/index.js";
+import net from "net";
+import {
+    startServer,
+    restartServer,
+} from "../server/index.js";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import os from "os";
 import fs from "fs";
 import { loadSettings, saveSettings } from "./settings.js";
 import http from "http";
-import { config } from "../server/config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-let win;
+/*
+ * --------------------------------------------------------------------------
+ * Configuration
+ * --------------------------------------------------------------------------
+ *
+ * Runtime configuration must live in Electron's userData directory.
+ *
+ * Development example:
+ * C:\Users\<name>\AppData\Roaming\Semera Workshops\config.json
+ *
+ * Release builds use their own corresponding userData directory.
+ */
+
+const configPath = path.join(
+    app.getPath("userData"),
+    "config.json"
+);
+
+const defaultConfig = {
+    port: 80,
+    host: "0.0.0.0",
+};
+
+function saveConfig(config) {
+    const normalizedConfig = {
+        ...defaultConfig,
+        ...config,
+        port:
+            Number.parseInt(config?.port, 10) ||
+            defaultConfig.port,
+    };
+
+    try {
+        fs.writeFileSync(
+            configPath,
+            JSON.stringify(normalizedConfig, null, 2),
+            "utf-8"
+        );
+    } catch (err) {
+        console.error(
+            "Failed to save config.json:",
+            err
+        );
+        throw err;
+    }
+}
+
+function getConfig() {
+    try {
+        if (!fs.existsSync(configPath)) {
+            saveConfig(defaultConfig);
+
+            return {
+                ...defaultConfig,
+            };
+        }
+
+        const content = fs.readFileSync(
+            configPath,
+            "utf-8"
+        );
+
+        const parsed = JSON.parse(content);
+
+        return {
+            ...defaultConfig,
+            ...parsed,
+            port:
+                Number.parseInt(parsed?.port, 10) ||
+                defaultConfig.port,
+        };
+    } catch (err) {
+        console.error(
+            "Failed to read config.json, falling back to default:",
+            err
+        );
+
+        return {
+            ...defaultConfig,
+        };
+    }
+}
+
+console.log(
+    "USER DATA PATH:",
+    app.getPath("userData")
+);
+
+console.log(
+    "CONFIG PATH:",
+    configPath
+);
+
+/*
+ * --------------------------------------------------------------------------
+ * Window
+ * --------------------------------------------------------------------------
+ */
+
+let win = null;
 
 async function createWindow() {
     win = new BrowserWindow({
         width: 1400,
         height: 800,
-        icon: path.join(__dirname, "assets/icons/win/icon.ico"),
+
+        icon: path.join(
+            __dirname,
+            "assets/icons/win/icon.ico"
+        ),
+
         webPreferences: {
-            preload: path.join(__dirname, "preload.js"),
+            preload: path.join(
+                __dirname,
+                "preload.js"
+            ),
+
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false,
         },
     });
 
     createAppMenu(win);
 
-    if (process.env.NODE_ENV === "development") {
+    if (
+        process.env.NODE_ENV ===
+        "development"
+    ) {
         win.webContents.openDevTools();
-        waitForServer('http://localhost:5173/admin', () => {
-            win.loadURL("http://localhost:5173/admin");
-        });
+
+        try {
+            await waitForServer(
+                "http://localhost:5173/admin"
+            );
+
+            await win.loadURL(
+                "http://localhost:5173/admin"
+            );
+        } catch (err) {
+            console.error(
+                "Vite dev server did not become ready:",
+                err
+            );
+        }
     } else {
-        waitForServer(`http://localhost:${config.port}/admin`, () => {
-            win.loadURL(`http://localhost:${config.port}/admin`);
-        });
+        const { port } = getConfig();
+
+        const adminUrl =
+            `http://localhost:${port}/admin`;
+
+        try {
+            await waitForServer(adminUrl);
+
+            await win.loadURL(adminUrl);
+        } catch (err) {
+            console.error(
+                "Application server did not become ready:",
+                err
+            );
+        }
     }
 }
 
-function waitForServer(url, callback, retries = 10, interval = 500) {
-    let attempt = 0;
+/*
+ * --------------------------------------------------------------------------
+ * Wait for HTTP server
+ * --------------------------------------------------------------------------
+ */
 
-    const check = () => {
-        http.get(url, res => {
-            if (res.statusCode === 200) {
-                callback();
-            } else {
-                retry();
-            }
-        }).on('error', retry);
-    };
+function waitForServer(
+    url,
+    retries = 20,
+    interval = 250
+) {
+    return new Promise(
+        (resolve, reject) => {
+            let attempt = 0;
+            let finished = false;
 
-    const retry = () => {
-        if (attempt++ < retries) {
-            setTimeout(check, interval);
-        } else {
-            console.error('Server not responding after multiple attempts.');
+            const retry = () => {
+                if (finished) {
+                    return;
+                }
+
+                if (attempt++ < retries) {
+                    setTimeout(
+                        check,
+                        interval
+                    );
+                } else {
+                    finished = true;
+
+                    reject(
+                        new Error(
+                            `Server not responding at ${url}`
+                        )
+                    );
+                }
+            };
+
+            const check = () => {
+                if (finished) {
+                    return;
+                }
+
+                const request =
+                    http.get(
+                        url,
+                        res => {
+                            res.resume();
+
+                            if (
+                                res.statusCode &&
+                                res.statusCode >=
+                                200 &&
+                                res.statusCode <
+                                400
+                            ) {
+                                finished = true;
+                                resolve();
+                                return;
+                            }
+
+                            retry();
+                        }
+                    );
+
+                request.once(
+                    "error",
+                    retry
+                );
+
+                request.setTimeout(
+                    2000,
+                    () => {
+                        request.destroy();
+                    }
+                );
+            };
+
+            check();
         }
-    };
-
-    check();
+    );
 }
 
-function createAppMenu(win, hasAllocation = false) {
+/*
+ * --------------------------------------------------------------------------
+ * Application menu
+ * --------------------------------------------------------------------------
+ */
+
+function createAppMenu(
+    win,
+    hasAllocation = false
+) {
     const template = [
         {
             label: "Datei",
+
             submenu: [
-                { label: "Präferenzen importieren", click: () => win.webContents.send("menu-import-preferences") },
-                { label: "Präferenzen exportieren", click: () => win.webContents.send("menu-export-preferences") },
-                { type: "separator" },
-                { label: "Workshops importieren", click: () => win.webContents.send("menu-import-workshops") },
-                { label: "Workshops exportieren", click: () => win.webContents.send("menu-export-workshops") },
-                { label: "Workshops bearbeiten", click: () => win.webContents.send("menu-edit-workshops") },
-                { type: "separator" },
-                { label: "Teilnehmer importieren", click: () => win.webContents.send("menu-import-participants") },
-                { type: "separator" },
-                { label: "Einstellungen…", click: () => win.webContents.send("menu-settings") },
-                { type: "separator" },
-                { label: "Semera Workshops schließen", role: "quit" },
-            ]
+                {
+                    label:
+                        "Präferenzen importieren",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-import-preferences"
+                        ),
+                },
+
+                {
+                    label:
+                        "Präferenzen exportieren",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-export-preferences"
+                        ),
+                },
+
+                {
+                    type: "separator",
+                },
+
+                {
+                    label:
+                        "Workshops importieren",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-import-workshops"
+                        ),
+                },
+
+                {
+                    label:
+                        "Workshops exportieren",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-export-workshops"
+                        ),
+                },
+
+                {
+                    label:
+                        "Workshops bearbeiten",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-edit-workshops"
+                        ),
+                },
+
+                {
+                    type: "separator",
+                },
+
+                {
+                    label:
+                        "Teilnehmer importieren",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-import-participants"
+                        ),
+                },
+
+                {
+                    type: "separator",
+                },
+
+                {
+                    label: "Einstellungen…",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-settings"
+                        ),
+                },
+
+                {
+                    type: "separator",
+                },
+
+                {
+                    label:
+                        "Semera Workshops schließen",
+
+                    role: "quit",
+                },
+            ],
         },
+
         {
             label: "Zuteilungen",
+
             submenu: [
-                { label: "Zuteilung", id: "allocate", click: () => win.webContents.send("menu-allocate")},
-                { label: "Neu-Zuteilung", id: "reallocate", click: () => win.webContents.send("menu-reallocate"), enabled: hasAllocation },
-                { label: "Zuweisung zurücksetzen", click: () => {win.webContents.send("menu-reset-allocation");}, enabled: hasAllocation },
-                { type: "separator" },
                 {
-                    label: "Zuteilung speichern",
+                    label: "Zuteilung",
+                    id: "allocate",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-allocate"
+                        ),
+                },
+
+                {
+                    label:
+                        "Neu-Zuteilung",
+
+                    id: "reallocate",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-reallocate"
+                        ),
+
+                    enabled:
+                        hasAllocation,
+                },
+
+                {
+                    label:
+                        "Zuweisung zurücksetzen",
+
+                    click: () => {
+                        win.webContents.send(
+                            "menu-reset-allocation"
+                        );
+                    },
+
+                    enabled:
+                        hasAllocation,
+                },
+
+                {
+                    type: "separator",
+                },
+
+                {
+                    label:
+                        "Zuteilung speichern",
+
                     submenu: [
-                        { label: "Speichern als HTML", click: () => win.webContents.send("menu-save-allocation-html"), enabled: hasAllocation },
-                        { label: "Speichern als CSV", click: () => win.webContents.send("menu-save-allocation-csv"), enabled: hasAllocation },
-                        { label: "Speichern als DOCX", click: () => win.webContents.send("menu-save-allocation-docx"), enabled: hasAllocation },
+                        {
+                            label:
+                                "Speichern als HTML",
+
+                            click: () =>
+                                win.webContents.send(
+                                    "menu-save-allocation-html"
+                                ),
+
+                            enabled:
+                                hasAllocation,
+                        },
+
+                        {
+                            label:
+                                "Speichern als CSV",
+
+                            click: () =>
+                                win.webContents.send(
+                                    "menu-save-allocation-csv"
+                                ),
+
+                            enabled:
+                                hasAllocation,
+                        },
+
+                        {
+                            label:
+                                "Speichern als DOCX",
+
+                            click: () =>
+                                win.webContents.send(
+                                    "menu-save-allocation-docx"
+                                ),
+
+                            enabled:
+                                hasAllocation,
+                        },
                     ],
-                    enabled: hasAllocation
-                }
-            ]
+
+                    enabled:
+                        hasAllocation,
+                },
+            ],
         },
+
         {
             label: "Ansicht",
+
             submenu: [
-                { label: "Ansicht aktualisieren", click: () => win.webContents.send("menu-refresh") },
                 {
-                    label: "Abgabe Formular öffnen…",
+                    label:
+                        "Ansicht aktualisieren",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-refresh"
+                        ),
+                },
+
+                {
+                    label:
+                        "Abgabe Formular öffnen…",
+
                     click: () => {
-                        shell.openExternal(`http://localhost:${config.port}`);
+                        const currentPort =
+                            getConfig().port;
+
+                        shell.openExternal(
+                            `http://localhost:${currentPort}`
+                        );
                     },
                 },
-                { label: "Fehlende Teilnehmer…", click: () => win.webContents.send("menu-missing") },
-                { label: "QR-Code…", click: () => win.webContents.send("menu-qr") }
-            ]
+
+                {
+                    label:
+                        "Fehlende Teilnehmer…",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-missing"
+                        ),
+                },
+
+                {
+                    label: "QR-Code…",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-qr"
+                        ),
+                },
+            ],
         },
+
         {
             label: "Hilfe",
+
             submenu: [
                 {
-                    label: "Handbuch (PDF)",
+                    label:
+                        "Handbuch (PDF)",
+
                     click: () => {
-                        const manualPath = getManualPath();
-                        shell.openPath(manualPath);
-                    }
+                        const manualPath =
+                            getManualPath();
+
+                        shell.openPath(
+                            manualPath
+                        );
+                    },
                 },
-                { type: "separator" },
-                { role: "about", label: "Über Semera Workshops" }
-            ]
-        }
+
+                {
+                    type: "separator",
+                },
+
+                {
+                    role: "about",
+                    label:
+                        "Über Semera Workshops",
+                },
+            ],
+        },
     ];
 
-    const menu = Menu.buildFromTemplate(template);
+    const menu =
+        Menu.buildFromTemplate(
+            template
+        );
+
     Menu.setApplicationMenu(menu);
 }
 
+/*
+ * --------------------------------------------------------------------------
+ * LAN IP
+ * --------------------------------------------------------------------------
+ */
+
 function getLocalIp() {
-    const nets = os.networkInterfaces();
-    for (const name of Object.keys(nets)) {
-        for (const net of nets[name]) {
-            if (net.family === "IPv4" && !net.internal) {
-                if (/^(192\.168|10\.|172\.(1[6-9]|2\d|3[0-1]))\./) {
-                    return net.address;
-                }
+    const nets =
+        os.networkInterfaces();
+
+    const privateIpRegex =
+        /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/;
+
+    for (
+        const name of Object.keys(
+            nets
+        )
+    ) {
+        const interfaces =
+            nets[name] || [];
+
+        for (
+            const networkInterface of interfaces
+        ) {
+            if (
+                networkInterface.family ===
+                "IPv4" &&
+                !networkInterface.internal &&
+                privateIpRegex.test(
+                    networkInterface.address
+                )
+            ) {
+                return networkInterface.address;
             }
         }
     }
+
+    /*
+     * If no RFC1918 address was found,
+     * return another non-internal IPv4
+     * address if one exists.
+     */
+    for (
+        const name of Object.keys(
+            nets
+        )
+    ) {
+        const interfaces =
+            nets[name] || [];
+
+        for (
+            const networkInterface of interfaces
+        ) {
+            if (
+                networkInterface.family ===
+                "IPv4" &&
+                !networkInterface.internal
+            ) {
+                return networkInterface.address;
+            }
+        }
+    }
+
     return "localhost";
 }
 
+/*
+ * --------------------------------------------------------------------------
+ * Manual path
+ * --------------------------------------------------------------------------
+ */
 
 function getManualPath() {
     if (app.isPackaged) {
-        return path.join(process.resourcesPath, "manual.pdf");
-    } else {
-        return path.join(__dirname, "manual.pdf");
+        return path.join(
+            process.resourcesPath,
+            "manual.pdf"
+        );
     }
+
+    return path.join(
+        __dirname,
+        "manual.pdf"
+    );
 }
 
-ipcMain.handle("get-local-ip", () => {
-    return getLocalIp();
-});
+/*
+ * --------------------------------------------------------------------------
+ * IPC: Local IP
+ * --------------------------------------------------------------------------
+ */
 
-ipcMain.handle("settings:load", () => {
-    return loadSettings();
-});
+ipcMain.handle(
+    "get-local-ip",
+    () => {
+        return getLocalIp();
+    }
+);
 
-ipcMain.handle("settings:save", (event, newSettings) => {
-    return saveSettings(newSettings);
-});
+/*
+ * --------------------------------------------------------------------------
+ * IPC: Settings
+ * --------------------------------------------------------------------------
+ */
 
-ipcMain.on("allocation-state", (event, hasAllocation) => {
-    createAppMenu(win, hasAllocation);
-});
+ipcMain.handle(
+    "settings:load",
+    () => {
+        return loadSettings();
+    }
+);
 
-ipcMain.handle("import-participants-dialog", async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-        title: "Teilnehmer importieren",
-        filters: [
-            { name: "Unterstützte Datein", extensions: ["json", "csv"] },
-            { name: "JSON", extensions: ["json"] },
-            { name: "CSV", extensions: ["csv"] }
-        ],
-        properties: ["openFile"]
-    });
+ipcMain.handle(
+    "settings:save",
+    async (_event, newSettings) => {
+        const saved =
+            saveSettings(
+                newSettings
+            );
 
-    if (canceled || filePaths.length === 0) return null;
-
-    const filePath = filePaths[0];
-    const content = fs.readFileSync(filePath, "utf-8");
-
-    return { content, path: filePath };
-});
-
-ipcMain.handle("import-preferences-dialog", async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-        title: "Präferenzen importieren",
-        filters: [{ name: "JSON Datein", extensions: ["json"] }],
-        properties: ["openFile"]
-    });
-
-    if (canceled || filePaths.length === 0) return null;
-
-    // Read the file contents
-    const content = fs.readFileSync(filePaths[0], "utf-8");
-    return { content, path: filePaths[0] };
-});
-
-ipcMain.handle("import-workshops-dialog", async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-        title: "Workshops importieren",
-        filters: [{ name: "JSON Datein", extensions: ["json"] }],
-        properties: ["openFile"]
-    });
-
-    if (canceled || filePaths.length === 0) return null;
-
-    // Read the file contents
-    const content = fs.readFileSync(filePaths[0], "utf-8");
-    return { content, path: filePaths[0] };
-});
-
-ipcMain.on("show-context-menu", (event, data) => {
-    const menu = Menu.buildFromTemplate([
-        {
-            label: "Zuweisen",
-            click: () => {
-                event.sender.send("context-assign", data);
-            }
+        if (!saved) {
+            return false;
         }
-    ]);
 
-    menu.popup({
-        window: BrowserWindow.fromWebContents(event.sender)
-    });
-});
+        /*
+         * Keep Bonjour state in sync
+         * with the currently running
+         * server.
+         */
+        try {
+            const currentPort =
+                getConfig().port;
 
-app.whenReady().then(() => {
-    startServer(config.port);
-    createWindow();
-});
+            await fetch(
+                `http://127.0.0.1:${currentPort}/api/bonjour/toggle`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+
+                    body: JSON.stringify(
+                        {
+                            enable:
+                                newSettings.enableBonjour ??
+                                true,
+                        }
+                    ),
+                }
+            );
+        } catch (err) {
+            console.error(
+                "Failed to sync Bonjour state:",
+                err
+            );
+        }
+
+        return true;
+    }
+);
+
+/*
+ * --------------------------------------------------------------------------
+ * IPC: Check whether a port is free
+ * --------------------------------------------------------------------------
+ */
+
+ipcMain.handle(
+    "port:check",
+    async (_event, requestedPort) => {
+        const port =
+            Number.parseInt(
+                requestedPort,
+                10
+            );
+
+        const currentPort =
+            getConfig().port;
+
+        if (
+            !Number.isInteger(port) ||
+            port < 1 ||
+            port > 65535
+        ) {
+            return {
+                available: false,
+                message:
+                    "Ungültige Port-Nummer",
+            };
+        }
+
+        /*
+         * The currently running application
+         * port is valid for the application.
+         */
+        if (port === currentPort) {
+            return {
+                available: true,
+                message:
+                    `Port ${port} wird bereits von Semera Workshops verwendet.`,
+            };
+        }
+
+        return new Promise(
+            resolve => {
+                const testServer =
+                    net.createServer();
+
+                testServer.once(
+                    "error",
+                    err => {
+                        if (
+                            err.code ===
+                            "EADDRINUSE"
+                        ) {
+                            resolve({
+                                available:
+                                    false,
+
+                                message:
+                                    `Port ${port} wird bereits verwendet!`,
+                            });
+                        } else {
+                            resolve({
+                                available:
+                                    false,
+
+                                message:
+                                    `Fehler: ${err.message}`,
+                            });
+                        }
+                    }
+                );
+
+                testServer.once(
+                    "listening",
+                    () => {
+                        testServer.close(
+                            () => {
+                                resolve({
+                                    available:
+                                        true,
+
+                                    message:
+                                        `Port ${port} ist frei`,
+                                });
+                            }
+                        );
+                    }
+                );
+
+                testServer.listen(
+                    port,
+                    "0.0.0.0"
+                );
+            }
+        );
+    }
+);
+
+/*
+ * --------------------------------------------------------------------------
+ * IPC: Server configuration
+ * --------------------------------------------------------------------------
+ */
+
+ipcMain.handle(
+    "server:get-config",
+    () => {
+        return getConfig();
+    }
+);
+
+/*
+ * --------------------------------------------------------------------------
+ * IPC: Change server port
+ * --------------------------------------------------------------------------
+ */
+
+ipcMain.handle(
+    "server:change-port",
+    async (
+        _event,
+        requestedPort
+    ) => {
+        const port =
+            Number.parseInt(
+                requestedPort,
+                10
+            );
+
+        if (
+            !Number.isInteger(port) ||
+            port < 1 ||
+            port > 65535
+        ) {
+            return {
+                success: false,
+                message:
+                    "Ungültige Port-Nummer",
+            };
+        }
+
+        const oldConfig =
+            getConfig();
+
+        const settings =
+            loadSettings();
+
+        const enableBonjour =
+            settings?.enableBonjour ??
+            true;
+
+        const host =
+            oldConfig.host ??
+            "0.0.0.0";
+
+        if (
+            port ===
+            oldConfig.port
+        ) {
+            return {
+                success: true,
+                port,
+            };
+        }
+
+        try {
+            console.log(
+                `Changing server port from ${oldConfig.port} to ${port}`
+            );
+
+            await restartServer(
+                port,
+                enableBonjour,
+                host
+            );
+
+            /*
+             * Only persist the new port
+             * after the new server started
+             * successfully.
+             */
+            saveConfig({
+                ...oldConfig,
+                port,
+            });
+
+            console.log(
+                `Server successfully restarted on port ${port}`
+            );
+
+            /*
+             * Production renderer is served
+             * by Express. Therefore the
+             * BrowserWindow must move to the
+             * new origin.
+             *
+             * Development stays on Vite 5173.
+             */
+            if (
+                process.env.NODE_ENV !==
+                "development" &&
+                win &&
+                !win.isDestroyed()
+            ) {
+                const adminUrl =
+                    `http://localhost:${port}/admin`;
+
+                await waitForServer(
+                    adminUrl
+                );
+
+                await win.loadURL(
+                    adminUrl
+                );
+
+                console.log(
+                    `BrowserWindow moved to ${adminUrl}`
+                );
+            }
+
+            return {
+                success: true,
+                port,
+            };
+        } catch (err) {
+            console.error(
+                "Failed to change server port:",
+                err
+            );
+
+            /*
+             * restartServer() may have
+             * already stopped the previous
+             * server. Restore it.
+             */
+            try {
+                await restartServer(
+                    oldConfig.port,
+                    enableBonjour,
+                    host
+                );
+
+                console.log(
+                    `Restored server on port ${oldConfig.port}`
+                );
+            } catch (
+            restoreError
+            ) {
+                console.error(
+                    "Failed to restore previous server:",
+                    restoreError
+                );
+            }
+
+            return {
+                success: false,
+
+                message:
+                    err?.code ===
+                        "EADDRINUSE"
+                        ? `Port ${port} wird bereits verwendet.`
+                        : err?.message ||
+                        "Server-Port konnte nicht geändert werden.",
+            };
+        }
+    }
+);
+
+/*
+ * --------------------------------------------------------------------------
+ * Allocation state
+ * --------------------------------------------------------------------------
+ */
+
+ipcMain.on(
+    "allocation-state",
+    (_event, hasAllocation) => {
+        createAppMenu(
+            win,
+            hasAllocation
+        );
+    }
+);
+
+/*
+ * --------------------------------------------------------------------------
+ * Import dialogs
+ * --------------------------------------------------------------------------
+ */
+
+ipcMain.handle(
+    "import-participants-dialog",
+    async () => {
+        const {
+            canceled,
+            filePaths,
+        } =
+            await dialog.showOpenDialog(
+                {
+                    title:
+                        "Teilnehmer importieren",
+
+                    filters: [
+                        {
+                            name:
+                                "Unterstützte Dateien",
+
+                            extensions: [
+                                "json",
+                                "csv",
+                            ],
+                        },
+
+                        {
+                            name: "JSON",
+                            extensions: [
+                                "json",
+                            ],
+                        },
+
+                        {
+                            name: "CSV",
+                            extensions: [
+                                "csv",
+                            ],
+                        },
+                    ],
+
+                    properties: [
+                        "openFile",
+                    ],
+                }
+            );
+
+        if (
+            canceled ||
+            filePaths.length === 0
+        ) {
+            return null;
+        }
+
+        const filePath =
+            filePaths[0];
+
+        const content =
+            fs.readFileSync(
+                filePath,
+                "utf-8"
+            );
+
+        return {
+            content,
+            path: filePath,
+        };
+    }
+);
+
+ipcMain.handle(
+    "import-preferences-dialog",
+    async () => {
+        const {
+            canceled,
+            filePaths,
+        } =
+            await dialog.showOpenDialog(
+                {
+                    title:
+                        "Präferenzen importieren",
+
+                    filters: [
+                        {
+                            name:
+                                "JSON Dateien",
+
+                            extensions: [
+                                "json",
+                            ],
+                        },
+                    ],
+
+                    properties: [
+                        "openFile",
+                    ],
+                }
+            );
+
+        if (
+            canceled ||
+            filePaths.length === 0
+        ) {
+            return null;
+        }
+
+        const content =
+            fs.readFileSync(
+                filePaths[0],
+                "utf-8"
+            );
+
+        return {
+            content,
+            path: filePaths[0],
+        };
+    }
+);
+
+ipcMain.handle(
+    "import-workshops-dialog",
+    async () => {
+        const {
+            canceled,
+            filePaths,
+        } =
+            await dialog.showOpenDialog(
+                {
+                    title:
+                        "Workshops importieren",
+
+                    filters: [
+                        {
+                            name:
+                                "JSON Dateien",
+
+                            extensions: [
+                                "json",
+                            ],
+                        },
+                    ],
+
+                    properties: [
+                        "openFile",
+                    ],
+                }
+            );
+
+        if (
+            canceled ||
+            filePaths.length === 0
+        ) {
+            return null;
+        }
+
+        const content =
+            fs.readFileSync(
+                filePaths[0],
+                "utf-8"
+            );
+
+        return {
+            content,
+            path: filePaths[0],
+        };
+    }
+);
+
+/*
+ * --------------------------------------------------------------------------
+ * Context menu
+ * --------------------------------------------------------------------------
+ */
+
+ipcMain.on(
+    "show-context-menu",
+    (event, data) => {
+        const menu =
+            Menu.buildFromTemplate(
+                [
+                    {
+                        label:
+                            "Zuweisen",
+
+                        click: () => {
+                            event.sender.send(
+                                "context-assign",
+                                data
+                            );
+                        },
+                    },
+                ]
+            );
+
+        menu.popup({
+            window:
+                BrowserWindow.fromWebContents(
+                    event.sender
+                ),
+        });
+    }
+);
+
+/*
+ * --------------------------------------------------------------------------
+ * Bonjour check
+ * --------------------------------------------------------------------------
+ */
+
+ipcMain.handle(
+    "bonjour:check",
+    async () => {
+        try {
+            const currentPort =
+                getConfig().port;
+
+            const response =
+                await fetch(
+                    `http://127.0.0.1:${currentPort}/api/bonjour/verify`
+                );
+
+            return await response.json();
+        } catch (err) {
+            console.error(
+                "Bonjour check failed:",
+                err
+            );
+
+            return {
+                working: false,
+                message:
+                    "Server-Status konnte nicht geprüft werden",
+            };
+        }
+    }
+);
+
+/*
+ * --------------------------------------------------------------------------
+ * Application startup
+ * --------------------------------------------------------------------------
+ */
+
+app.whenReady().then(
+    async () => {
+        const settings =
+            loadSettings();
+
+        const enableBonjour =
+            settings?.enableBonjour ??
+            true;
+
+        const {
+            port,
+            host,
+        } = getConfig();
+
+        console.log(
+            "LOADED CONFIG:",
+            {
+                port,
+                host,
+            }
+        );
+
+        try {
+            await startServer(
+                port,
+                enableBonjour,
+                host
+            );
+
+            await createWindow();
+        } catch (err) {
+            console.error(
+                "Failed to start application:",
+                err
+            );
+
+            app.quit();
+        }
+    }
+);
+
+/*
+ * --------------------------------------------------------------------------
+ * About panel
+ * --------------------------------------------------------------------------
+ */
 
 app.setAboutPanelOptions({
-    applicationName: "Semera Workshops",
-    applicationVersion: app.getVersion(),
-    version: "1.0.0", // optional MacOS
-    copyright: "© 2026 Semera",
-    credits: "Jan Schulz-Nigmann",
-    iconPath: "../assets/semera_workshops_48.png",
+    applicationName:
+        "Semera Workshops",
+
+    applicationVersion:
+        app.getVersion(),
+
+    version: "1.0.0",
+
+    copyright:
+        "© 2026 Semera",
+
+    credits:
+        "Jan Schulz-Nigmann",
+
+    iconPath:
+        "../assets/semera_workshops_48.png",
 });
 
-app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") app.quit();
-});
+/*
+ * --------------------------------------------------------------------------
+ * Window lifecycle
+ * --------------------------------------------------------------------------
+ */
 
-process.on("uncaughtException", (err) => {
-    console.error("Uncaught exception:", err);
-    app.quit();
-});
+app.on(
+    "window-all-closed",
+    () => {
+        if (
+            process.platform !==
+            "darwin"
+        ) {
+            app.quit();
+        }
+    }
+);
 
-process.on("unhandledRejection", (reason) => {
-    console.error("Unhandled rejection:", reason);
-    app.quit();
-});
+/*
+ * --------------------------------------------------------------------------
+ * Error handling
+ * --------------------------------------------------------------------------
+ */
+
+process.on(
+    "uncaughtException",
+    err => {
+        console.error(
+            "Uncaught exception:",
+            err
+        );
+
+        app.quit();
+    }
+);
+
+process.on(
+    "unhandledRejection",
+    reason => {
+        console.error(
+            "Unhandled rejection:",
+            reason
+        );
+
+        app.quit();
+    }
+);
