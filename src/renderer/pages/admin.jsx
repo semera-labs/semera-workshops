@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
-import { saveAs } from 'file-saver';
 import { deDE } from '@mui/x-data-grid/locales';
-import { generateAllocationCSV, generateAllocationFile, generateAllocationDocx, generateAllocation } from '../../lib/generateAllocationReport';
+import { generateAllocationCSV, generateAllocationFile, generateAllocationDocx, generateAllocationExcel, generateAllocation } from '../../lib/generateAllocationReport';
 import WorkshopEditor from "../../components/WorkshopEditor";
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import QRDialog from "../../components/QRDialog";
@@ -11,6 +10,13 @@ import API_BASE from "../../lib/api.js";
 import SettingsDialog from "../../components/SettingsDialog";
 import { Button } from "@mui/material";
 import UnmatchedDialog from '../../components/UnmatchedDialog.jsx';
+import ImportDialog from '../../components/ImportDialog.jsx';
+import ExportDialog from '../../components/ExportDialog.jsx';
+import AllocationSummary from '../../components/AllocationSummary.jsx';
+import WorkshopOccupancy from '../../components/WorkshopOccupancy.jsx';
+import { assignManually, unassignManually, assignmentsOf } from '../../lib/allocation/manual.js';
+import { normalizeKey } from '../../lib/allocation/keys.js';
+import { PREFERENCE_KEYS, PREFERENCE_HEADERS } from '../../lib/preferenceKeys.js';
 
 export default function AdminView() {
     const [submissions, setSubmissions] = useState([]);
@@ -22,36 +28,52 @@ export default function AdminView() {
     const [unmatchedList, setUnmatchedList] = useState([]);
 
     const [qrOpen, setQrOpen] = useState(false);
+    const [importDialog, setImportDialog] = useState({ open: false, kind: 'participants' });
+    const [exportDialog, setExportDialog] = useState({ open: false, only: null });
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [settings, setSettings] = useState({ warnBeforeDelete: true, numDays: 1, numPreferences: 3 });
     const [allocations, setAllocations] = useState(null);
     const [workshops, setWorkshops] = useState([]);
 
-    const updateAllocation = (personName, newWorkshop) => {
-        setAllocations((prev) => {
-            let updated = prev ? [...prev] : [];
+    /*
+     * The "context-assign" listener is registered once. It reads these refs
+     * so it always sees the current workshops and settings instead of the
+     * values from the first render.
+     */
+    const workshopsRef = useRef(workshops);
+    const settingsRef = useRef(settings);
 
-            // Remove the person from all other workshops
-            updated = updated.map(w => ({
-                ...w,
-                participants: w.participants.filter(p => p.toLowerCase() !== personName.toLowerCase())
-            }));
+    useEffect(() => {
+        workshopsRef.current = workshops;
+    }, [workshops]);
 
-            // Find or create target workshop
-            let target = updated.find(w => w.title === newWorkshop);
-            if (!target) {
-                target = { title: newWorkshop, participants: [] };
-                updated.push(target);
-            }
+    useEffect(() => {
+        settingsRef.current = settings;
+    }, [settings]);
 
-            // Add the person to the target workshop
-            if (!target.participants.some(p => p.toLowerCase() === personName.toLowerCase())) {
-                target.participants = [...target.participants, personName];
-            }
+    /*
+     * Manual assignment (context menu). Works for one day and for several
+     * days; see lib/allocation/manual.js. Reads the refs because the
+     * listener is registered only once.
+     */
+    const manualContext = () => ({
+        workshops: workshopsRef.current,
+        numDays: settingsRef.current.numDays,
+        maxPreferences: settingsRef.current.numPreferences,
+    });
 
-            return updated;
-        });
+    const assignManual = ({ name, workshop, day }) => {
+        setAllocations((previous) =>
+            assignManually(previous, { name, workshop, day }, manualContext())
+        );
     };
+
+    const unassignManual = ({ name, day }) => {
+        setAllocations((previous) =>
+            unassignManually(previous, { name, day }, manualContext())
+        );
+    };
+
     const fetchWorkshops = async () => {
         try {
             const response = await axios.get(`http://${API_BASE}/api/workshops`);
@@ -63,15 +85,127 @@ export default function AdminView() {
 
     const getWorkshopCounts = () => {
         const counts = {};
-        if (!allocations || workshops.length === 0) return counts;
 
-        workshops.forEach(w => {
-            const allocation = allocations.find(a => a.title === w.title);
-            const count = allocation?.participants?.length || 0;
-            counts[w.title] = {
+        workshops.forEach((workshop) => {
+            const max =
+                workshop.maxParticipants ?? 0;
+
+            const min =
+                workshop.minParticipants ?? 0;
+
+            if (!allocations) {
+                counts[workshop.title] = {
+                    count: 0,
+                    max,
+                    overfilled: false,
+                    days: null,
+                };
+
+                return;
+            }
+
+            /*
+             * Multi-day allocation
+             */
+            if (
+                allocations.mode ===
+                "multi-day"
+            ) {
+                const scheduledWorkshop =
+                    allocations.schedule?.[
+                    workshop.title
+                    ];
+
+                const dayEntries =
+                    Object.entries(
+                        scheduledWorkshop?.days ||
+                        {}
+                    );
+
+                const days =
+                    dayEntries.map(
+                        ([
+                            day,
+                            participants,
+                        ]) => {
+                            const count =
+                                participants
+                                    ?.length || 0;
+
+                            return {
+                                day,
+                                count,
+                                max,
+
+                                overfilled:
+                                    max > 0 &&
+                                    count > max,
+
+                                under:
+                                    min > 0 &&
+                                    count < min,
+                            };
+                        }
+                    );
+
+                counts[
+                    workshop.title
+                ] = {
+                    /*
+                     * Total assignment count.
+                     * Only used internally / potentially
+                     * for summaries.
+                     */
+                    count:
+                        days.reduce(
+                            (
+                                total,
+                                dayInfo
+                            ) =>
+                                total +
+                                dayInfo.count,
+                            0
+                        ),
+
+                    max,
+
+                    overfilled:
+                        days.some(
+                            (dayInfo) =>
+                                dayInfo.overfilled
+                        ),
+
+                    days,
+                };
+
+                return;
+            }
+
+            /*
+             * Single-day / random allocation
+             */
+            const allocation =
+                allocations.workshops?.find(
+                    (item) =>
+                        item.title ===
+                        workshop.title
+                );
+
+            const count =
+                allocation?.participants
+                    ?.length || 0;
+
+            counts[
+                workshop.title
+            ] = {
                 count,
-                max: w.maxParticipants,
-                overfilled: count > (w.maxParticipants || Infinity),
+                max,
+
+                overfilled:
+                    max > 0 &&
+                    count > max,
+
+                days: null,
             };
         });
 
@@ -103,15 +237,15 @@ export default function AdminView() {
             return;
         }
 
-        const handler = ({ name, workshop }) => {
-            updateAllocation(name, workshop);
-        };
-
-        window.electron.ipcRenderer.on("context-assign", handler);
+        window.electron.ipcRenderer.on("context-assign", assignManual);
+        window.electron.ipcRenderer.on("context-unassign", unassignManual);
 
         return () => {
-            window.electron.ipcRenderer.removeListener("context-assign", handler);
+            window.electron.ipcRenderer.removeAllListeners("context-assign");
+            window.electron.ipcRenderer.removeAllListeners("context-unassign");
         };
+        // Registered once on purpose: the handlers only use setState and refs.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -129,11 +263,13 @@ export default function AdminView() {
                 setOpenWorkshopEditor(true);
             });
             window.electron.ipcRenderer.on("menu-refresh", fetchSubmissions);
-            window.electron.ipcRenderer.on("menu-export-preferences", exportData);
-            window.electron.ipcRenderer.on("menu-export-workshops", exportWorkshops);
+            window.electron.ipcRenderer.on("menu-export-preferences", () => openExport('preferences'));
+            window.electron.ipcRenderer.on("menu-export-workshops", () => openExport('workshops'));
+            window.electron.ipcRenderer.on("menu-export-participants", () => openExport('participants'));
             window.electron.ipcRenderer.on("menu-import-workshops", importWorkshops);
             window.electron.ipcRenderer.on("menu-import-participants", importParticipants);
             window.electron.ipcRenderer.on("menu-import-preferences", importData);
+            window.electron.ipcRenderer.on("menu-export-excel", () => openExport(null));
 
             window.electron.ipcRenderer.invoke("settings:load").then((loaded) => {
                 setSettings(loaded);
@@ -146,9 +282,11 @@ export default function AdminView() {
                 window.electron.ipcRenderer.removeAllListeners("menu-refresh");
                 window.electron.ipcRenderer.removeAllListeners("menu-export-preferences");
                 window.electron.ipcRenderer.removeAllListeners("menu-export-workshops");
+                window.electron.ipcRenderer.removeAllListeners("menu-export-participants");
                 window.electron.ipcRenderer.removeAllListeners("menu-import-workshops");
                 window.electron.ipcRenderer.removeAllListeners("menu-import-preferences");
                 window.electron.ipcRenderer.removeAllListeners("menu-import-participants");
+                window.electron.ipcRenderer.removeAllListeners("menu-export-excel");
             };
         }
     }, []);
@@ -156,30 +294,42 @@ export default function AdminView() {
     useEffect(() => {
         if (window.electron?.ipcRenderer) {
             window.electron.ipcRenderer.on("menu-allocate", handleAllocate);
-            window.electron.ipcRenderer.on("menu-reallocate", () => handleAllocate(true));
             const handleReset = () => resetAllocations();
             window.electron.ipcRenderer.on("menu-reset-allocation", handleReset);
 
 
             return () => {
                 window.electron.ipcRenderer.removeAllListeners("menu-allocate");
-                window.electron.ipcRenderer.removeAllListeners("menu-reallocate");
                 window.electron.ipcRenderer.removeAllListeners("menu-reset-allocation");
             };
         }
     }, [settings]);
 
-    const handleAllocate = async (reallocate = false) => {
-        const data = await generateAllocation(settings.numDays, settings.numPreferences, !reallocate ? allocations : []);
-        if (data.workshops) setAllocations(data.workshops);
-        console.log(data.workshops)
-        if (data.schedule) setAllocations(data.schedule);
-        console.log(data.schedule)
+    const handleAllocate = async () => {
+        const data = await generateAllocation(
+            settings.numDays,
+            settings.numPreferences,
+            { attempts: settings.allocationRuns }
+        );
+
+        if (!data) {
+            return;
+        }
+        setAllocations(data);
+
+        console.log(
+            "Allocation result:",
+            data
+        );
     };
 
     const resetAllocations = () => {
-        setAllocations([]); // clear all allocations
-        window.electron?.ipcRenderer?.send("allocation-state", false); // optional: notify main process
+        setAllocations(null);
+
+        window.electron?.ipcRenderer?.send(
+            "allocation-state",
+            false
+        );
     };
 
     useEffect(() => {
@@ -203,10 +353,12 @@ export default function AdminView() {
             window.electron.ipcRenderer.on("menu-save-allocation-html", () => { if (allocations) generateAllocationFile(allocations); });
             window.electron.ipcRenderer.on("menu-save-allocation-csv", () => { if (allocations) generateAllocationCSV(allocations); });
             window.electron.ipcRenderer.on("menu-save-allocation-docx", () => { if (allocations) generateAllocationDocx(allocations); });
+            window.electron.ipcRenderer.on("menu-save-allocation-xlsx", () => { if (allocations) generateAllocationExcel(allocations); });
             return () => {
                 window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-html");
                 window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-csv");
                 window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-docx");
+                window.electron.ipcRenderer.removeAllListeners("menu-save-allocation-xlsx");
             };
         }
     }, [allocations]);
@@ -214,156 +366,60 @@ export default function AdminView() {
 
     const handleSettingsClose = () => {
         setSettingsOpen(false);
-        if (window.electron?.ipcRenderer) {
-            window.electron.ipcRenderer.invoke("settings:load").then((loaded) => {
-                setSettings(loaded);
-            });
-        }
-    };
 
+        if (
+            window.electron?.ipcRenderer
+        ) {
+            window.electron.ipcRenderer
+                .invoke("settings:load")
+                .then((loaded) => {
+                    setSettings((previousSettings) => {
+                        /*
+                         * If allocation mode changed between
+                         * single-day and multi-day, clear the
+                         * old allocation.
+                         */
+                        const oldDays =
+                            Number(
+                                previousSettings.numDays
+                            ) || 1;
 
-    const exportData = async () => {
-        try {
-            const response = await axios.get(`http://${API_BASE}/api/preferences`);
-            const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
-            saveAs(blob, 'submissions.json');
-        } catch (error) {
-            console.error('Fehler beim Exportieren der Workshops:', error);
-            alert('Fehler beim Exportieren der Workshops.');
-        }
-    };
+                        const newDays =
+                            Number(
+                                loaded.numDays
+                            ) || 1;
 
-    const exportWorkshops = async () => {
-        try {
-            const response = await axios.get(`http://${API_BASE}/api/workshops`);
-            const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
-            saveAs(blob, 'workshops.json');
-        } catch (error) {
-            console.error('Fehler beim Exportieren der Workshops:', error);
-            alert('Fehler beim Exportieren der Workshops.');
-        }
-    };
+                        // A different number of days makes the old allocation unusable.
+                        if (oldDays !== newDays) {
+                            setAllocations(null);
 
-    const importData = async () => {
-        try {
-            const result = await window.electron.ipcRenderer.invoke("import-preferences-dialog");
-            if (!result) return;
+                            window.electron?.ipcRenderer?.send(
+                                "allocation-state",
+                                false
+                            );
+                        }
 
-            const importedData = JSON.parse(result.content);
-
-            // Update local state
-            setSubmissions(importedData);
-
-            // Send to server
-            const response = await axios.post(`http://${API_BASE}/api/preferences/import`, importedData);
-            if (response.status === 200) {
-            } else {
-                alert("Fehler beim Server-Update.");
-            }
-        } catch (error) {
-            console.error("Fehler beim Import:", error);
-            alert("Fehler beim Importieren. Bitte gültige JSON-Datei auswählen.");
-        }
-    };
-
-
-    const importParticipants = async () => {
-        try {
-            const result = await window.electron.ipcRenderer.invoke("import-participants-dialog");
-            if (!result) return;
-
-            let imported = [];
-            const { content, path } = result;
-
-            if (path.endsWith(".json")) {
-                const json = JSON.parse(content);
-                imported = json.map((p) => ({
-                    Vorname: p.Vorname || p.firstname || "",
-                    Name: p.Name || p.lastname || "",
-                    Kurs: p.Kurs || "",
-                }));
-            } else if (path.endsWith(".csv")) {
-                // --- CSV import ---
-                const lines = content.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-                if (lines.length === 0) return alert("Leere CSV-Datei.");
-
-                // detect delimiter: use ; if it occurs more often than ,
-                const delimiter = (lines[0].split(";").length > lines[0].split(",").length) ? ";" : ",";
-
-                // split first line (possible header)
-                const headerCells = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
-
-                // header keywords we accept
-                const headerPatterns = [
-                    ["nachname", "vorname"],
-                    ["lastname", "firstname"],
-                    ["name", "firstname"],
-                ];
-
-                // check if first line looks like a header
-                const isHeader = headerPatterns.some(pattern =>
-                    pattern.every(keyword => headerCells.some(h => h.includes(keyword)))
-                );
-
-                // choose starting index for data
-                const startIndex = isHeader ? 1 : 0;
-
-                imported = lines.slice(startIndex).map(line => {
-                    const cells = line.split(delimiter).map(s => s.trim());
-                    // If more than two cells, just take first two meaningful ones
-                    const [col1, col2] = cells;
-
-                    // Determine which one is first name and last name if we had a header
-                    let firstname = col2;
-                    let lastname = col1;
-
-                    // If the file used "Firstname, Lastname" header order
-                    if (isHeader && headerCells[0].includes("vorname") || headerCells[0].includes("firstname")) {
-                        firstname = col1;
-                        lastname = col2;
-                    }
-
-                    return {
-                        Vorname: firstname || "",
-                        Name: lastname || "",
-                        Kurs: "",
-                    };
+                        return loaded;
+                    });
                 });
-            } else {
-                alert("Ungültiges Dateiformat. Bitte JSON oder CSV verwenden.");
-                return;
-            }
-
-            if (imported.length === 0) {
-                alert("Keine Teilnehmer gefunden.");
-                return;
-            }
-
-            await axios.post(`http://${API_BASE}/api/participants/import`, imported);
-            setPeople(imported);
-        } catch (err) {
-            console.error("Fehler beim Importieren der Teilnehmer:", err);
-            alert("Fehler beim Importieren der Teilnehmer. Bitte prüfen Sie die Datei.");
         }
     };
 
-    const importWorkshops = async () => {
-        try {
-            const result = await window.electron.ipcRenderer.invoke("import-workshops-dialog");
-            if (!result) return;
 
-            const importedData = JSON.parse(result.content);
+    // Export dialog: one data set (Excel or JSON) or everything as one Excel file.
+    const openExport = (only) => setExportDialog({ open: true, only });
 
-            // Send to server
-            const response = await axios.post(`http://${API_BASE}/api/workshops/import`, importedData);
-            if (response.status === 200) {
-            } else {
-                alert("Fehler beim Server-Update.");
-            }
-        } catch (error) {
-            console.error("Fehler beim Import:", error);
-            alert("Fehler beim Importieren. Bitte gültige JSON-Datei auswählen.");
-        }
+    // The import dialog reads Excel, CSV and JSON and lets the user check the column assignment.
+    const openImport = (kind) => setImportDialog({ open: true, kind });
+
+    const importData = () => openImport('preferences');
+    const importParticipants = () => openImport('participants');
+    const importWorkshops = () => openImport('workshops');
+
+    const handleImported = () => {
+        fetchSubmissions();
+        fetchParticipants();
+        fetchWorkshops();
     };
 
     const handleDeleteClick = (id) => async () => {
@@ -385,7 +441,7 @@ export default function AdminView() {
         }
     };
 
-    const handleCellEditCommit = async (newRow, oldRow) => {
+    const handleCellEditCommit = async (newRow) => {
         console.log('Edit Commit:', newRow);
         var updatedSubmission = {};
 
@@ -395,7 +451,7 @@ export default function AdminView() {
             if (submission.id === newRow.id) {
                 updatedSubmission.id = newRow.id;
                 updatedSubmission.name = newRow.name;
-                updatedSubmission.preferences = { first: newRow.first, second: newRow.second, third: newRow.third, fourth: newRow.fourth };
+                updatedSubmission.preferences = Object.fromEntries(PREFERENCE_KEYS.map((key) => [key, newRow[key]]));
                 console.log('Updated Submission:', updatedSubmission);
                 return updatedSubmission;
             }
@@ -410,7 +466,8 @@ export default function AdminView() {
             console.log('Änderung erfolgreich auf dem Server gespeichert.');
         } catch (error) {
             console.error('Fehler beim Speichern der Änderung auf dem Server:', error);
-            alert('Fehler beim Speichern der Änderung auf dem Server.');
+            alert(error.response?.data?.message || 'Fehler beim Speichern der Änderung auf dem Server.');
+            fetchSubmissions();
         }
 
         return newRow;
@@ -444,71 +501,188 @@ export default function AdminView() {
 
     const preferenceCount = settings.numPreferences; // e.g. 4
 
+    /*
+     * Right click on a name or a wish cell: manual assignment menu (built in
+     * the main process). Single-day assigns directly, multi-day asks for the day.
+     */
+    const showContextMenu = (name, workshop) => {
+        const multiDay = allocations
+            ? allocations.mode === "multi-day"
+            : Number(settings.numDays) > 1;
+
+        const counts = getWorkshopCounts();
+
+        window.electron?.ipcRenderer?.send("show-context-menu", {
+            name,
+            workshop,
+            multiDay,
+            numDays: allocations?.numDays ?? settings.numDays,
+
+            workshops: workshops.map((item) => {
+                const info = counts[item.title];
+
+                return {
+                    title: item.title,
+                    info: multiDay
+                        ? (info?.days ?? []).map((day) => `${day.count}/${day.max || "-"}`).join(" · ")
+                        : `${info?.count ?? 0}/${info?.max || "-"}`,
+                };
+            }),
+
+            assigned: assignmentsOf(allocations, name),
+        });
+    };
+
     // Build the preference columns dynamically
     const preferenceColumns = Array.from({ length: preferenceCount }, (_, index) => {
-        const field = ['first', 'second', 'third', 'fourth', 'fifth'][index] || `preference${index + 1}`;
-        const labelMap = ['Erste Wahl', 'Zweite Wahl', 'Dritte Wahl', 'Vierte Wahl', 'Fünfte Wahl'];
+        const field = PREFERENCE_KEYS[index] || `preference${index + 1}`;
 
         return {
             field,
-            headerName: labelMap[index] || `Wahl ${index + 1}`,
+            headerName: PREFERENCE_HEADERS[index] || `Wahl ${index + 1}`,
             width: 160,
+            editable: true,
+
+            renderCell: (params) => {
+                // Multi-day: show on which day this wish was granted.
+                const days = getAssignedDays(params.row.name, params.value, allocations);
+
+                return (
+                    <div
+                        style={{
+                            width: "100%",
+                            height: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 4,
+                        }}
+                        onContextMenu={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            showContextMenu(params.row.name, params.value);
+                        }}
+                    >
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {params.value}
+                        </span>
+
+                        {days.map((day) => (
+                            <span
+                                key={day}
+                                title={`Tag ${day}`}
+                                style={{
+                                    flexShrink: 0,
+                                    minWidth: 18,
+                                    height: 18,
+                                    lineHeight: "18px",
+                                    borderRadius: 9999,
+                                    textAlign: "center",
+                                    fontSize: 11,
+                                    fontWeight: "bold",
+                                    color: "#fff",
+                                    background: "#065f46",
+                                }}
+                            >
+                                {day}
+                            </span>
+                        ))}
+                    </div>
+                );
+            }
+        };
+    });
+
+    /*
+     * Days on which this person got the workshop (multi-day only).
+     * Titles and names are compared like the allocator does, so a wish
+     * typed as "fotografie " is still found.
+     */
+    const getAssignedDays = (submissionName, preferenceName, allocations) => {
+        if (
+            allocations?.mode !== "multi-day" ||
+            !preferenceName ||
+            !submissionName
+        ) {
+            return [];
+        }
+
+        const titleKey = normalizeKey(preferenceName);
+        const nameKey = normalizeKey(submissionName);
+
+        const workshop = Object.values(allocations.schedule ?? {}).find(
+            (item) => normalizeKey(item.title) === titleKey
+        );
+
+        return Object.entries(workshop?.days ?? {})
+            .filter(
+                ([, participants]) =>
+                    Array.isArray(participants) &&
+                    participants.some((name) => normalizeKey(name) === nameKey)
+            )
+            .map(([day]) => Number(day))
+            .sort((a, b) => a - b);
+    };
+
+    const isPreferenceMatched = (
+        submissionName,
+        preferenceName,
+        allocations
+    ) => {
+        if (
+            !allocations ||
+            !preferenceName ||
+            !submissionName
+        ) {
+            return false;
+        }
+
+        /*
+         * Multi-day: highlight the wish when the person got that
+         * workshop on at least one day.
+         */
+        if (allocations.mode === "multi-day") {
+            return getAssignedDays(submissionName, preferenceName, allocations).length > 0;
+        }
+
+        /*
+         * Single-day / random
+         */
+        const titleKey = normalizeKey(preferenceName);
+        const nameKey = normalizeKey(submissionName);
+
+        const workshop = allocations.workshops?.find(
+            (item) => normalizeKey(item.title) === titleKey
+        );
+
+        return (
+            Array.isArray(workshop?.participants) &&
+            workshop.participants.some((name) => normalizeKey(name) === nameKey)
+        );
+    };
+
+    const columns = [
+        {
+            field: 'name',
+            headerName: 'Name',
+            width: 200,
             editable: true,
 
             renderCell: (params) => (
                 <div
-                    style={{ width: "100%", height: "100%" }}
+                    style={{ width: "100%", height: "100%", display: "flex", alignItems: "center" }}
                     onContextMenu={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
 
-                        window.electron?.ipcRenderer?.send("show-context-menu", {
-                            name: params.row.name,
-                            workshop: params.value
-                        });
+                        showContextMenu(params.row.name, "");
                     }}
                 >
                     {params.value}
                 </div>
-            )
-        };
-    });
-
-    const isPreferenceMatched = (submissionName, preferenceName, allocations) => {
-        if (!allocations || !preferenceName) return false;
-
-        // Single-day mode
-        const workshops = Array.isArray(allocations)
-            ? allocations
-            : allocations.workshops;
-
-        if (Array.isArray(workshops)) {
-            const workshop = workshops.find(w => w.title === preferenceName);
-            if (!workshop || !Array.isArray(workshop.participants)) return false;
-
-            return workshop.participants.some(
-                n => n.toLowerCase() === submissionName.toLowerCase()
-            );
-        }
-
-        // Multi-day mode
-        if (allocations.schedule) {
-            const workshop = allocations.schedule[preferenceName];
-            if (!workshop || !workshop.days) return false;
-
-            return Object.values(workshop.days).some(dayParticipants =>
-                Array.isArray(dayParticipants) &&
-                dayParticipants.some(
-                    n => n.toLowerCase() === submissionName.toLowerCase()
-                )
-            );
-        }
-
-        return false;
-    };
-
-    const columns = [
-        { field: 'name', headerName: 'Name', width: 200, editable: true },
+            ),
+        },
         ...preferenceColumns,
         {
             field: 'actions',
@@ -531,91 +705,129 @@ export default function AdminView() {
 
     return (
         <>
-            <div className="min-h-screen flex flex-col p-4 bg-white w-full">
-                <div className="flex w-full h-full">
-                    <div style={{ height: '87vh', width: '100%' }}>
-                        <DataGrid rows={submissions.map((submission) => {
-                            const matched = isNameMatched(submission.name);
-                            return {
-                                id: submission.id,
-                                name: submission.name,
-                                first: submission.preferences.first,
-                                second: submission.preferences.second,
-                                third: submission.preferences.third,
-                                fourth: submission.preferences.fourth,
-                                matched
-                            }
-                        })}
-                            columns={columns} pageSize={5}
-                            localeText={deDE.components.MuiDataGrid.defaultProps.localeText}
-                            processRowUpdate={(updatedRow, originalRow) => handleCellEditCommit(updatedRow, originalRow)}
-                            getRowClassName={(params) =>
-                                params.row.matched ? '' : 'unmatched-row'
-                            }
-                            getCellClassName={(params) => {
-                                const { field, row } = params;
-                                if (['first', 'second', 'third', 'fourth'].includes(field)) {
-                                    const matched = isPreferenceMatched(row.name, row[field], allocations);
-                                    return matched ? 'highlight-cell' : '';
+            {/*
+              * The page fills the window: table + side panel take all height, the
+              * bar below has its natural height. Very small windows scroll instead
+              * of squeezing the side panel away.
+              */}
+            <div className="h-screen w-full overflow-auto bg-white">
+                <div className="h-full min-h-[460px] min-w-[820px] flex flex-col gap-2 p-4">
+                    <div className="flex flex-1 min-h-0 gap-4">
+                        <div className="flex-1 min-w-[320px]" style={{ height: '100%' }}>
+                            <DataGrid rows={submissions.map((submission) => {
+                                const matched = isNameMatched(submission.name);
+                                return {
+                                    id: submission.id,
+                                    name: submission.name,
+                                    ...Object.fromEntries(
+                                        PREFERENCE_KEYS.map((key) => [key, submission.preferences?.[key]])
+                                    ),
+                                    matched
                                 }
-                                return '';
+                            })}
+                                columns={columns} pageSize={5}
+                                localeText={deDE.components.MuiDataGrid.defaultProps.localeText}
+                                processRowUpdate={(updatedRow) => handleCellEditCommit(updatedRow)}
+                                getRowClassName={(params) =>
+                                    params.row.matched ? '' : 'unmatched-row'
+                                }
+                                getCellClassName={(params) => {
+                                    const { field, row } = params;
+                                    if (PREFERENCE_KEYS.includes(field)) {
+                                        const matched = isPreferenceMatched(row.name, row[field], allocations);
+                                        return matched ? 'highlight-cell' : '';
+                                    }
+                                    return '';
+                                }}
+                            />
+
+                        </div>
+                        {/* RIGHT PANEL */}
+                        <aside className="w-80 shrink-0 p-4 border rounded bg-gray-50 overflow-y-auto">
+
+                            <h3 className="font-bold mb-2">
+                                Workshop-Belegung
+                            </h3>
+
+                            {allocations?.mode === "multi-day" && (
+                                <div className="text-xs text-gray-500 mb-4 space-y-1">
+                                    <div>
+                                        Mehrtages-Zuteilung · {allocations.numDays} Tage ·
+                                        max. {allocations.maxPreferences} Präferenzen
+                                    </div>
+                                    <div>Die Zahl in einer grünen Zelle ist der Tag.</div>
+                                </div>
+                            )}
+
+                            {allocations && allocations.mode !== "multi-day" && (
+                                <div className="text-xs text-gray-500 mb-4">
+                                    Eintages-Zuteilung · max. {allocations.maxPreferences} Präferenzen
+                                </div>
+                            )}
+
+                            {allocations && (
+                                <AllocationSummary
+                                    allocations={allocations}
+                                    submissions={submissions}
+                                />
+                            )}
+
+                            <WorkshopOccupancy
+                                counts={getWorkshopCounts()}
+                                multiDay={allocations?.mode === "multi-day"}
+                            />
+
+                        </aside>
+                    </div>
+                    <div className="shrink-0 flex justify-between items-center text-sm text-gray-600">
+                        <div>
+                            <strong>Abgleich:</strong> {matchedCount} von {totalPeople} Teilnehmern
+                        </div>
+                        <Button
+                            onClick={async () => {
+                                const confirmDelete = window.confirm(
+                                    "Sind Sie sicher, dass Sie alle Präferenzen löschen möchten?"
+                                );
+                                if (!confirmDelete) return;
+
+                                try {
+                                    await axios.delete(`http://${API_BASE}/api/preferences`); // assuming you support bulk delete
+                                    setSubmissions([]);
+                                } catch (err) {
+                                    console.error("Error deleting all submissions:", err);
+                                    alert("Fehler beim löschen aller Präferenen.");
+                                }
                             }}
-                        />
-
+                            className="text-white hover:bg-red-600" color="error" variant="contained"
+                        >
+                            Alle löschen
+                        </Button>
                     </div>
-                    {/* RIGHT PANEL */}
-                    <div className="w-64 ml-4 p-3 border rounded bg-gray-50 overflow-y-auto">
-                        <h3 className="font-bold mb-2">Workshop Counts</h3>
-
-                        {Object.entries(getWorkshopCounts()).map(([name, info]) => (
-                            <div
-                                key={name}
-                                className={`flex justify-between text-sm py-1 ${info.overfilled ? 'text-red-600 font-bold' : ''
-                                    }`}
-                            >
-                                <span>{name}</span>
-                                <span className="font-semibold">
-                                    {info.count}/{info.max || '-'}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
+                    <WorkshopEditor
+                        open={openWorkshopEditor}
+                        onClose={() => setOpenWorkshopEditor(false)}
+                    />
+                    <QRDialog open={qrOpen} onClose={() => setQrOpen(false)} />
+                    <SettingsDialog open={settingsOpen} onClose={handleSettingsClose} />
+                    <ImportDialog
+                        open={importDialog.open}
+                        initialKind={importDialog.kind}
+                        onClose={() => setImportDialog((previous) => ({ ...previous, open: false }))}
+                        onImported={handleImported}
+                    />
+                    <ExportDialog
+                        open={exportDialog.open}
+                        only={exportDialog.only}
+                        onClose={() => setExportDialog((previous) => ({ ...previous, open: false }))}
+                        allocations={allocations}
+                        numPreferences={settings.numPreferences}
+                    />
+                    <UnmatchedDialog
+                        open={unmatchedOpen}
+                        onClose={() => setUnmatchedOpen(false)}
+                        unmatchedNames={unmatchedList}
+                    />
                 </div>
-                <div className="flex justify-between items-center mt-2 text-sm text-gray-600">
-                    <div>
-                        <strong>Abgleich:</strong> {matchedCount} von {totalPeople} Teilnehmern
-                    </div>
-                    <Button
-                        onClick={async () => {
-                            const confirmDelete = window.confirm(
-                                "Sind Sie sicher, dass Sie alle Präferenzen löschen möchten?"
-                            );
-                            if (!confirmDelete) return;
-
-                            try {
-                                await axios.delete(`http://${API_BASE}/api/preferences`); // assuming you support bulk delete
-                                setSubmissions([]);
-                            } catch (err) {
-                                console.error("Error deleting all submissions:", err);
-                                alert("Fehler beim löschen aller Präferenen.");
-                            }
-                        }}
-                        className="text-white hover:bg-red-600" color="error" variant="contained"
-                    >
-                        Alle löschen
-                    </Button>
-                </div>
-                <WorkshopEditor
-                    open={openWorkshopEditor}
-                    onClose={() => setOpenWorkshopEditor(false)}
-                />
-                <QRDialog open={qrOpen} onClose={() => setQrOpen(false)} />
-                <SettingsDialog open={settingsOpen} onClose={handleSettingsClose} />
-                <UnmatchedDialog
-                    open={unmatchedOpen}
-                    onClose={() => setUnmatchedOpen(false)}
-                    unmatchedNames={unmatchedList}
-                />
             </div>
         </>
     );

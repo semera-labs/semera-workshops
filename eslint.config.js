@@ -26,4 +26,16 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Electron main process and the Express server run in Node, not the browser.
+    files: [
+      'src/main/**/*.js',
+      'src/server/**/*.js',
+      'src/lib/db.js',
+      'src/lib/initDatabase.js',
+    ],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ])

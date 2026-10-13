@@ -13,6 +13,11 @@ const defaultSettings = {
     enableBonjour: true,
     numDays: 1,
     numPreferences: 3,
+    allocationRuns: 1,
+    networkAddress: "",
+    reportShowParticipantCount: true,
+    reportShowStaff: true,
+    reportShowRoom: true,
 };
 
 export function loadSettings() {
@@ -58,12 +63,17 @@ export function saveSettings(
          * settings.json.
          */
         const {
-            port,
+            port: _port,
             ...settingsWithoutPort
         } = newSettings;
 
+        /*
+         * Merge with what is stored: dialogs only send the fields they know,
+         * everything else (e.g. the chosen network address) must survive.
+         */
         const normalizedSettings = {
             ...defaultSettings,
+            ...loadSettings(),
             ...settingsWithoutPort,
         };
 

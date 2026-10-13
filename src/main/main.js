@@ -12,12 +12,13 @@ import net from "net";
 import {
     startServer,
     restartServer,
+    refreshBonjour,
 } from "../server/index.js";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-import os from "os";
 import fs from "fs";
 import { loadSettings, saveSettings } from "./settings.js";
+import { listNetworkCandidates, pickAddress } from "../lib/network.js";
 import http from "http";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -352,6 +353,30 @@ function createAppMenu(
                 },
 
                 {
+                    label:
+                        "Teilnehmer exportieren",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-export-participants"
+                        ),
+                },
+
+                {
+                    type: "separator",
+                },
+
+                {
+                    label:
+                        "Alles als Excel exportieren…",
+
+                    click: () =>
+                        win.webContents.send(
+                            "menu-export-excel"
+                        ),
+                },
+
+                {
                     type: "separator",
                 },
 
@@ -389,21 +414,6 @@ function createAppMenu(
                         win.webContents.send(
                             "menu-allocate"
                         ),
-                },
-
-                {
-                    label:
-                        "Neu-Zuteilung",
-
-                    id: "reallocate",
-
-                    click: () =>
-                        win.webContents.send(
-                            "menu-reallocate"
-                        ),
-
-                    enabled:
-                        hasAllocation,
                 },
 
                 {
@@ -449,6 +459,19 @@ function createAppMenu(
                             click: () =>
                                 win.webContents.send(
                                     "menu-save-allocation-csv"
+                                ),
+
+                            enabled:
+                                hasAllocation,
+                        },
+
+                        {
+                            label:
+                                "Speichern als Excel",
+
+                            click: () =>
+                                win.webContents.send(
+                                    "menu-save-allocation-xlsx"
                                 ),
 
                             enabled:
@@ -570,63 +593,13 @@ function createAppMenu(
  */
 
 function getLocalIp() {
-    const nets =
-        os.networkInterfaces();
+    const chosen =
+        pickAddress(
+            listNetworkCandidates(),
+            loadSettings().networkAddress
+        );
 
-    const privateIpRegex =
-        /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/;
-
-    for (
-        const name of Object.keys(
-            nets
-        )
-    ) {
-        const interfaces =
-            nets[name] || [];
-
-        for (
-            const networkInterface of interfaces
-        ) {
-            if (
-                networkInterface.family ===
-                "IPv4" &&
-                !networkInterface.internal &&
-                privateIpRegex.test(
-                    networkInterface.address
-                )
-            ) {
-                return networkInterface.address;
-            }
-        }
-    }
-
-    /*
-     * If no RFC1918 address was found,
-     * return another non-internal IPv4
-     * address if one exists.
-     */
-    for (
-        const name of Object.keys(
-            nets
-        )
-    ) {
-        const interfaces =
-            nets[name] || [];
-
-        for (
-            const networkInterface of interfaces
-        ) {
-            if (
-                networkInterface.family ===
-                "IPv4" &&
-                !networkInterface.internal
-            ) {
-                return networkInterface.address;
-            }
-        }
-    }
-
-    return "localhost";
+    return chosen?.address ?? "localhost";
 }
 
 /*
@@ -659,6 +632,65 @@ ipcMain.handle(
     "get-local-ip",
     () => {
         return getLocalIp();
+    }
+);
+
+/*
+ * All network adapters with a note which ones phones can use, and the one
+ * that is currently chosen (the organiser's choice or the best guess).
+ */
+ipcMain.handle(
+    "network:get",
+    () => {
+        const candidates =
+            listNetworkCandidates();
+
+        const saved =
+            loadSettings().networkAddress ?? "";
+
+        return {
+            candidates,
+            saved,
+            selected:
+                pickAddress(candidates, saved)?.address ?? null,
+            automatic:
+                pickAddress(candidates)?.address ?? null,
+        };
+    }
+);
+
+/*
+ * address "" means: choose automatically.
+ */
+ipcMain.handle(
+    "network:select",
+    (_event, address) => {
+        const value =
+            typeof address === "string"
+                ? address
+                : "";
+
+        const known =
+            value === "" ||
+            listNetworkCandidates().some(
+                (candidate) => candidate.address === value
+            );
+
+        if (!known) {
+            return false;
+        }
+
+        const saved =
+            saveSettings({
+                ...loadSettings(),
+                networkAddress: value,
+            });
+
+        if (saved) {
+            refreshBonjour();
+        }
+
+        return saved;
     }
 );
 
@@ -1188,31 +1220,120 @@ ipcMain.handle(
  * --------------------------------------------------------------------------
  */
 
+/*
+ * data (sent by the admin page):
+ *   name        participant
+ *   workshop    workshop of the clicked wish cell (may be empty)
+ *   multiDay    true when the allocation has several days
+ *   numDays     number of days
+ *   workshops   [{ title, info }] all workshops, info e.g. "5/8"
+ *   assigned    [{ day, workshop }] what this person has right now
+ */
 ipcMain.on(
     "show-context-menu",
     (event, data) => {
-        const menu =
-            Menu.buildFromTemplate(
-                [
-                    {
-                        label:
-                            "Zuweisen",
+        const name = String(data?.name ?? "");
+        const workshop = data?.workshop ? String(data.workshop) : "";
+        const multiDay = Boolean(data?.multiDay);
 
-                        click: () => {
-                            event.sender.send(
-                                "context-assign",
-                                data
-                            );
-                        },
-                    },
-                ]
-            );
+        const numDays = multiDay
+            ? Math.min(7, Math.max(1, Number.parseInt(data?.numDays, 10) || 1))
+            : 1;
 
-        menu.popup({
-            window:
-                BrowserWindow.fromWebContents(
-                    event.sender
-                ),
+        const workshops = (Array.isArray(data?.workshops) ? data.workshops : [])
+            .map((item) => ({
+                title: String(item?.title ?? ""),
+                info: String(item?.info ?? ""),
+            }))
+            .filter((item) => item.title);
+
+        const assigned = (Array.isArray(data?.assigned) ? data.assigned : [])
+            .map((item) => ({
+                day: Number(item?.day) || 1,
+                workshop: String(item?.workshop ?? ""),
+            }));
+
+        const days = Array.from({ length: numDays }, (_, i) => i + 1);
+        const current = new Map(assigned.map((item) => [item.day, item.workshop]));
+
+        const send = (channel, payload) => event.sender.send(channel, payload);
+
+        /*
+         * One workshop: single-day assigns directly, multi-day asks for the day.
+         */
+        const assignItem = (title, label) =>
+            multiDay
+                ? {
+                    label,
+                    submenu: days.map((day) => {
+                        const there = current.get(day);
+
+                        return {
+                            label:
+                                `Tag ${day}` +
+                                (there === title
+                                    ? "  ✓"
+                                    : there
+                                        ? `  (ersetzt: ${there})`
+                                        : ""),
+
+                            click: () =>
+                                send("context-assign", { name, workshop: title, day }),
+                        };
+                    }),
+                }
+                : {
+                    label,
+                    click: () =>
+                        send("context-assign", { name, workshop: title, day: 1 }),
+                };
+
+        const template = [
+            { label: name, enabled: false },
+            { type: "separator" },
+        ];
+
+        if (workshop) {
+            template.push(assignItem(workshop, `„${workshop}“ zuweisen`));
+        }
+
+        template.push({
+            label: "Anderen Workshop zuweisen",
+            enabled: workshops.length > 0,
+            submenu: workshops.map((item) =>
+                assignItem(
+                    item.title,
+                    item.info ? `${item.title}  (${item.info})` : item.title
+                )
+            ),
+        });
+
+        template.push({ type: "separator" });
+
+        if (multiDay) {
+            template.push({
+                label: "Zuweisung aufheben",
+                enabled: assigned.length > 0,
+                submenu: [...assigned]
+                    .sort((a, b) => a.day - b.day)
+                    .map((item) => ({
+                        label: `Tag ${item.day}: ${item.workshop}`,
+                        click: () =>
+                            send("context-unassign", { name, day: item.day }),
+                    })),
+            });
+        } else {
+            template.push({
+                label: assigned[0]
+                    ? `Zuweisung aufheben (${assigned[0].workshop})`
+                    : "Zuweisung aufheben",
+                enabled: assigned.length > 0,
+                click: () => send("context-unassign", { name, day: 1 }),
+            });
+        }
+
+        Menu.buildFromTemplate(template).popup({
+            window: BrowserWindow.fromWebContents(event.sender),
         });
     }
 );

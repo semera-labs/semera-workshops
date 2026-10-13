@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Vite's root is src/renderer, so classes used in src/components must be added explicitly. */
+@source "../components";
+
 html, body, #root {
   height: 100%;
   width: 100%;

@@ -11,6 +11,10 @@ import {
   Typography,
   Box,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 
 export default function QRDialog({ open, onClose }) {
@@ -21,6 +25,10 @@ export default function QRDialog({ open, onClose }) {
 
   const [error, setError] = useState(null);
 
+  // Network adapters of this PC (see src/lib/network.js) and the chosen one.
+  const [network, setNetwork] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
   const qrRefs = {
     android: useRef(null),
     ios: useRef(null),
@@ -30,11 +38,15 @@ export default function QRDialog({ open, onClose }) {
     const getConnectionData = async () => {
       try {
         if (window.electron?.ipcRenderer) {
-          // Get IP
-          const ip =
+          // The address phones should use (organiser's choice or best guess)
+          const info =
             await window.electron.ipcRenderer.invoke(
-              "get-local-ip"
+              "network:get"
             );
+
+          setNetwork(info);
+
+          const ip = info?.selected ?? null;
 
           // Get active server configuration
           const serverConfig =
@@ -79,7 +91,7 @@ export default function QRDialog({ open, onClose }) {
             ip === "0.0.0.0"
           ) {
             errors.push(
-              "Lokale IP-Adresse konnte nicht ermittelt werden."
+              "Keine nutzbare Netzwerkadresse gefunden. Ist der Rechner mit dem WLAN oder Hotspot verbunden?"
             );
           }
 
@@ -169,7 +181,30 @@ export default function QRDialog({ open, onClose }) {
     if (open) {
       getConnectionData();
     }
-  }, [open]);
+  }, [open, refreshKey]);
+
+  const chooseNetwork = async (address) => {
+    await window.electron?.ipcRenderer?.invoke(
+      "network:select",
+      address
+    );
+
+    setRefreshKey((key) => key + 1);
+  };
+
+  const selectedCandidate =
+    network?.candidates?.find(
+      (candidate) =>
+        candidate.address === network.selected
+    ) ?? null;
+
+  const kindLabel = {
+    lan: "",
+    other: " – kein privates Netz",
+    vpn: " – VPN",
+    virtual: " – virtuell",
+    linklocal: " – keine Adresse vom Router",
+  };
 
   const handleDownload = async () => {
     const androidCanvas =
@@ -355,6 +390,68 @@ export default function QRDialog({ open, onClose }) {
             <Alert severity="warning">
               {error}
             </Alert>
+          </Box>
+        )}
+
+        {network?.candidates?.length > 0 && (
+          <Box sx={{ width: "100%", padding: 1 }}>
+            <FormControl
+              size="small"
+              fullWidth
+            >
+              <InputLabel id="network-label" shrink>
+                Verfügbare Netzwerkadapter
+              </InputLabel>
+
+              <Select
+                labelId="network-label"
+                label="Netzwerk, in dem die Handys sind"
+                displayEmpty
+                notched
+                value={network.saved ?? ""}
+                onChange={(event) =>
+                  chooseNetwork(event.target.value)
+                }
+              >
+                <MenuItem value="">
+                  Automatisch
+                  {network.automatic
+                    ? ` (${network.automatic})`
+                    : ""}
+                </MenuItem>
+
+                {network.candidates.map(
+                  (candidate) => (
+                    <MenuItem
+                      key={`${candidate.name}-${candidate.address}`}
+                      value={candidate.address}
+                    >
+                      {candidate.name} –{" "}
+                      {candidate.address}
+                      {kindLabel[candidate.kind]}
+                    </MenuItem>
+                  )
+                )}
+              </Select>
+            </FormControl>
+
+            {selectedCandidate?.reason && (
+              <Alert
+                severity="warning"
+                sx={{ mt: 1 }}
+              >
+                {selectedCandidate.reason}
+              </Alert>
+            )}
+
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mt: 1 }}
+            >
+              Handy und Rechner müssen im selben WLAN sein.
+              Die Handys brauchen kein Internet.
+            </Typography>
           </Box>
         )}
 

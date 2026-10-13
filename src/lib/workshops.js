@@ -1,4 +1,6 @@
 import { Workshop } from "../models/workshop.js";
+import sequelize from "./db.js";
+import { importError } from "./httpError.js";
 
 export async function getAllWorkshops() {
     return await Workshop.findAll();
@@ -51,8 +53,38 @@ export async function deleteAllWorkshops() {
     }
 }
 
-// Optional: replace all workshops with a new set
+// Replace all workshops with a new set (all or nothing)
 export async function setWorkshops(newWorkshops) {
-    await Workshop.destroy({ where: {} });
-    return await Workshop.bulkCreate(newWorkshops);
+    if (!Array.isArray(newWorkshops)) {
+        throw importError("Expected an array of workshops.");
+    }
+
+    const toCount = (value, fallback) => {
+        const number = Number.parseInt(value, 10);
+        return Number.isInteger(number) && number >= 0 ? number : fallback;
+    };
+
+    const rows = newWorkshops.map((entry, index) => {
+        const title = String(entry?.title ?? "").trim();
+        const maxParticipants = toCount(entry?.maxParticipants, null);
+
+        if (!title || maxParticipants == null || maxParticipants < 1) {
+            throw importError(
+                `Workshop ${index + 1} needs a title and a maximum of at least 1.`
+            );
+        }
+
+        return {
+            title,
+            maxParticipants,
+            minParticipants: toCount(entry?.minParticipants, 0),
+            staff: String(entry?.staff ?? ""),
+            location: String(entry?.location ?? entry?.room ?? ""),
+        };
+    });
+
+    return await sequelize.transaction(async (transaction) => {
+        await Workshop.destroy({ where: {}, transaction });
+        return await Workshop.bulkCreate(rows, { transaction });
+    });
 }

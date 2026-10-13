@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { MAX_ALLOCATION_RUNS, MAX_DAYS, MAX_PREFERENCES } from "../lib/preferenceKeys.js";
 
 import {
   Dialog,
@@ -17,13 +18,7 @@ import {
   Alert,
 } from "@mui/material";
 
-// Add enable/disable bonjour service (check if working?)
-
-// Add Count/ Max participants, staff, room to report generation add settings
-
 // make allocation algorithm better
-
-// Set port? WILL NOT HAPPEN WITH THIS ARCHITECTURE LOL
 
 export default function SettingsDialog({ open, onClose }) {
   const [settings, setSettings] = useState({
@@ -31,6 +26,13 @@ export default function SettingsDialog({ open, onClose }) {
     enableBonjour: true,
     numDays: 1,
     numPreferences: 3,
+    allocationRuns: 1,
+
+    // Report generation settings
+    reportShowParticipantCount: true,
+    reportShowStaff: true,
+    reportShowRoom: true,
+
     port: 80,
   });
 
@@ -52,19 +54,44 @@ export default function SettingsDialog({ open, onClose }) {
           window.electron.ipcRenderer.invoke("server:get-config"),
         ]);
 
-        const port = Number.parseInt(serverConfig?.port, 10) || 80;
+        const port =
+          Number.parseInt(serverConfig?.port, 10) || 80;
 
         setOriginalPort(port);
 
         setSettings({
-          warnBeforeDelete: loadedSettings?.warnBeforeDelete ?? true,
-          enableBonjour: loadedSettings?.enableBonjour ?? true,
-          numDays: loadedSettings?.numDays ?? 1,
-          numPreferences: loadedSettings?.numPreferences ?? 3,
+          warnBeforeDelete:
+            loadedSettings?.warnBeforeDelete ?? true,
+
+          enableBonjour:
+            loadedSettings?.enableBonjour ?? true,
+
+          numDays:
+            loadedSettings?.numDays ?? 1,
+
+          numPreferences:
+            loadedSettings?.numPreferences ?? 3,
+
+          allocationRuns:
+            loadedSettings?.allocationRuns ?? 1,
+
+          // Report generation settings
+          reportShowParticipantCount:
+            loadedSettings?.reportShowParticipantCount ?? true,
+
+          reportShowStaff:
+            loadedSettings?.reportShowStaff ?? true,
+
+          reportShowRoom:
+            loadedSettings?.reportShowRoom ?? true,
+
           port,
         });
       } catch (err) {
-        console.error("Fehler beim Laden der Einstellungen:", err);
+        console.error(
+          "Fehler beim Laden der Einstellungen:",
+          err
+        );
 
         setError(
           "Die Einstellungen konnten nicht geladen werden."
@@ -81,7 +108,8 @@ export default function SettingsDialog({ open, onClose }) {
       return;
     }
 
-    const newPort = Number.parseInt(settings.port, 10);
+    const newPort =
+      Number.parseInt(settings.port, 10);
 
     if (
       !Number.isInteger(newPort) ||
@@ -93,6 +121,12 @@ export default function SettingsDialog({ open, onClose }) {
       );
       return;
     }
+
+    // Empty or out-of-range input becomes a valid number of runs.
+    const allocationRuns = Math.min(
+      MAX_ALLOCATION_RUNS,
+      Math.max(1, Number.parseInt(settings.allocationRuns, 10) || 1)
+    );
 
     setSaving(true);
     setError("");
@@ -107,7 +141,7 @@ export default function SettingsDialog({ open, onClose }) {
       const settingsSaved =
         await window.electron.ipcRenderer.invoke(
           "settings:save",
-          settings
+          { ...settings, allocationRuns }
         );
 
       if (!settingsSaved) {
@@ -131,7 +165,6 @@ export default function SettingsDialog({ open, onClose }) {
             result?.message ||
             "Der Server-Port konnte nicht geändert werden."
           );
-
           return;
         }
 
@@ -140,7 +173,10 @@ export default function SettingsDialog({ open, onClose }) {
 
       onClose();
     } catch (err) {
-      console.error("Fehler beim Speichern der Einstellungen:", err);
+      console.error(
+        "Fehler beim Speichern der Einstellungen:",
+        err
+      );
 
       setError(
         err?.message ||
@@ -182,7 +218,10 @@ export default function SettingsDialog({ open, onClose }) {
         <Box mb={3}>
           <Typography
             variant="subtitle1"
-            sx={{ mb: 1, fontWeight: 600 }}
+            sx={{
+              mb: 1,
+              fontWeight: 600,
+            }}
           >
             Allgemein
           </Typography>
@@ -194,7 +233,8 @@ export default function SettingsDialog({ open, onClose }) {
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    warnBeforeDelete: e.target.checked,
+                    warnBeforeDelete:
+                      e.target.checked,
                   })
                 }
               />
@@ -209,12 +249,20 @@ export default function SettingsDialog({ open, onClose }) {
         <Box mt={3} mb={3}>
           <Typography
             variant="subtitle1"
-            sx={{ mb: 1, fontWeight: 600 }}
+            sx={{
+              mb: 1,
+              fontWeight: 600,
+            }}
           >
             Workshop Einstellungen
           </Typography>
 
-          <Box sx={{ display: "flex", gap: 3 }}>
+          <Box
+            sx={{
+              display: "flex",
+              gap: 3,
+            }}
+          >
             <Box>
               <Typography
                 variant="body2"
@@ -228,12 +276,13 @@ export default function SettingsDialog({ open, onClose }) {
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    numDays: e.target.value,
+                    numDays:
+                      e.target.value,
                   })
                 }
                 size="small"
               >
-                {[1, 2, 3].map((n) => (
+                {Array.from({ length: MAX_DAYS }, (_, i) => i + 1).map((n) => (
                   <MenuItem
                     key={n}
                     value={n}
@@ -253,34 +302,168 @@ export default function SettingsDialog({ open, onClose }) {
               </Typography>
 
               <Select
-                value={settings.numPreferences}
+                value={
+                  settings.numPreferences
+                }
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    numPreferences: e.target.value,
+                    numPreferences:
+                      e.target.value,
                   })
                 }
                 size="small"
               >
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <MenuItem
-                    key={n}
-                    value={n}
-                  >
-                    {n}
-                  </MenuItem>
-                ))}
+                {Array.from({ length: MAX_PREFERENCES }, (_, i) => i + 1).map(
+                  (n) => (
+                    <MenuItem
+                      key={n}
+                      value={n}
+                    >
+                      {n}
+                    </MenuItem>
+                  )
+                )}
               </Select>
             </Box>
+
+            <Box>
+              <Typography
+                variant="body2"
+                sx={{ mb: 0.5 }}
+              >
+                Durchläufe
+              </Typography>
+
+              <TextField
+                type="number"
+                size="small"
+                value={settings.allocationRuns}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    allocationRuns: e.target.value,
+                  })
+                }
+                slotProps={{
+                  htmlInput: {
+                    min: 1,
+                    max: MAX_ALLOCATION_RUNS,
+                  },
+                }}
+                sx={{ width: 100 }}
+              />
+            </Box>
+          </Box>
+
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mt: 1 }}
+          >
+            Durchläufe: Die Zuteilung wird so oft mit anderen
+            Zufallswerten wiederholt (1 bis {MAX_ALLOCATION_RUNS}).
+            Übernommen wird der Durchlauf mit den meisten
+            1. Wahlen. Bei gleich vielen gewinnt der mit weniger
+            Nicht-Zugeteilten.
+          </Typography>
+        </Box>
+
+        <Divider />
+
+        {/* Report generation settings */}
+        <Box mt={3} mb={3}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              mb: 1,
+              fontWeight: 600,
+            }}
+          >
+            Berichtserstellung
+          </Typography>
+
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 1 }}
+          >
+            Zusätzliche Workshop-Informationen
+            im Zuteilungsbericht anzeigen.
+          </Typography>
+
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={
+                    settings.reportShowParticipantCount
+                  }
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      reportShowParticipantCount:
+                        e.target.checked,
+                    })
+                  }
+                />
+              }
+              label="Teilnehmeranzahl / maximale Teilnehmer anzeigen"
+            />
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={
+                    settings.reportShowStaff
+                  }
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      reportShowStaff:
+                        e.target.checked,
+                    })
+                  }
+                />
+              }
+              label="Personal anzeigen"
+            />
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={
+                    settings.reportShowRoom
+                  }
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      reportShowRoom:
+                        e.target.checked,
+                    })
+                  }
+                />
+              }
+              label="Raum anzeigen"
+            />
           </Box>
         </Box>
 
         <Divider />
 
+        {/* Network settings */}
         <Box mt={3}>
           <Typography
             variant="subtitle1"
-            sx={{ mb: 1, fontWeight: 600 }}
+            sx={{
+              mb: 1,
+              fontWeight: 600,
+            }}
           >
             Netzwerk
           </Typography>
@@ -288,11 +471,14 @@ export default function SettingsDialog({ open, onClose }) {
           <FormControlLabel
             control={
               <Switch
-                checked={settings.enableBonjour}
+                checked={
+                  settings.enableBonjour
+                }
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    enableBonjour: e.target.checked,
+                    enableBonjour:
+                      e.target.checked,
                   })
                 }
               />
@@ -315,15 +501,20 @@ export default function SettingsDialog({ open, onClose }) {
               onChange={(e) =>
                 setSettings({
                   ...settings,
-                  port: e.target.value,
+                  port:
+                    e.target.value,
                 })
               }
-              inputProps={{
-                min: 1,
-                max: 65535,
+              slotProps={{
+                htmlInput: {
+                  min: 1,
+                  max: 65535,
+                },
               }}
               disabled={saving}
-              sx={{ width: 160 }}
+              sx={{
+                width: 160,
+              }}
             />
 
             <Typography
@@ -334,7 +525,8 @@ export default function SettingsDialog({ open, onClose }) {
                 mt: 1,
               }}
             >
-              Der Server wird beim Ändern des Ports automatisch neu gestartet.
+              Der Server wird beim Ändern des
+              Ports automatisch neu gestartet.
             </Typography>
           </Box>
         </Box>
@@ -357,9 +549,13 @@ export default function SettingsDialog({ open, onClose }) {
           variant="contained"
           onClick={handleSave}
           disabled={saving}
-          sx={{ fontWeight: "bold" }}
+          sx={{
+            fontWeight: "bold",
+          }}
         >
-          {saving ? "Speichern…" : "Speichern"}
+          {saving
+            ? "Speichern…"
+            : "Speichern"}
         </Button>
       </DialogActions>
     </Dialog>

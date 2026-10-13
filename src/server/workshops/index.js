@@ -1,4 +1,5 @@
 import express from "express";
+import { localOnly } from "../localOnly.js";
 import {
     getAllWorkshops,
     createWorkshop,
@@ -24,7 +25,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/workshops → create a new workshop
-router.post("/", async (req, res) => {
+router.post("/", localOnly, async (req, res) => {
     try {
         const newWorkshop = await createWorkshop(req.body);
         res.status(201).json(newWorkshop);
@@ -35,7 +36,7 @@ router.post("/", async (req, res) => {
 });
 
 // POST /api/workshops/import
-router.post("/import", async (req, res) => {
+router.post("/import", localOnly, async (req, res) => {
     try {
         const newWorkshops = req.body;
 
@@ -51,22 +52,47 @@ router.post("/import", async (req, res) => {
             .json({ message: "Workshops imported successfully." });
     } catch (error) {
         console.error("Error importing workshops:", error);
-        res.status(500).json({ message: "Error importing workshops." });
+        res
+            .status(error.status === 400 ? 400 : 500)
+            .json({
+                message:
+                    error.status === 400
+                        ? `Ungültige Daten: ${error.message}`
+                        : "Error importing workshops.",
+            });
     }
 });
 
 // POST /api/workshops/allocate
-router.post("/allocate", async (req, res) => {
+// body: { numDays, maxPreferences, forceRandom, predefinedAllocations,
+//         seed?, fallback?, attempts? }
+router.post("/allocate", localOnly, async (req, res) => {
     try {
-        const { numDays, maxPreferences } = req.body;
+        const {
+            numDays = 1,
+            maxPreferences = 5,
+            forceRandom = false,
+            predefinedAllocations = [],
+            seed = null,
+            fallback = false,
+            attempts = 1,
+        } = req.body ?? {};
 
-        if (!numDays || typeof numDays !== "number" || numDays < 1) {
-            return res.status(400).json({ message: "numDays must be a positive number" });
+        // Ranges and data problems are checked by the allocator (status 400).
+        const result = await allocateWorkshops(
+            Number.parseInt(numDays, 10),
+            Number.parseInt(maxPreferences, 10),
+            predefinedAllocations,
+            Boolean(forceRandom),
+            { seed, fallback: fallback === true, attempts }
+        );
+
+        res.status(200).json(result);
+    } catch (error) {
+        if (error.status === 400) {
+            return res.status(400).json({ message: error.message });
         }
 
-        const allocations = await allocateWorkshops(numDays, maxPreferences || 5);
-        res.status(200).json(allocations);
-    } catch (error) {
         console.error("Error during allocation:", error);
         res.status(500).json({ message: "Error during allocation." });
     }
@@ -89,7 +115,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // PUT /api/workshops/:id
-router.put("/:id", async (req, res) => {
+router.put("/:id", localOnly, async (req, res) => {
     const { id } = req.params;
     try {
         const updated = await updateWorkshop(id, req.body);
@@ -101,7 +127,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE /api/workshops/:id
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", localOnly, async (req, res) => {
     const { id } = req.params;
     try {
         await deleteWorkshop(id);
@@ -113,7 +139,7 @@ router.delete("/:id", async (req, res) => {
 });
 
 // DELETE /api/workshops → delete all workshops
-router.delete("/", async (req, res) => {
+router.delete("/", localOnly, async (req, res) => {
     try {
         await deleteAllWorkshops();
         res.status(200).json({ message: "Alle Einträge erfolgreich gelöscht." });

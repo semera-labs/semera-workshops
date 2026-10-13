@@ -4,6 +4,19 @@ import path from "path";
 import { fileURLToPath } from "url";
 import net from "net";
 import { Bonjour } from "bonjour-service";
+import { loadSettings } from "../main/settings.js";
+import { localOnly } from "./localOnly.js";
+import {
+    NO_CACHE_HEADERS,
+    applyTransport,
+    rendererStatic,
+} from "./transport.js";
+import { publishWorkshopService, watchAddress } from "./bonjourService.js";
+import {
+    listNetworkCandidates,
+    pickAddress,
+} from "../lib/network.js";
+import { clampPreferenceCount } from "../lib/preferenceKeys.js";
 
 import preferencesRouter from "./preferences/index.js";
 import workshopsRouter from "./workshops/index.js";
@@ -46,6 +59,9 @@ let bonjourInstance =
 let publishedService =
     null;
 
+let stopAddressWatch =
+    null;
+
 /*
  * --------------------------------------------------------------------------
  * Middleware
@@ -62,8 +78,13 @@ app.use(
     })
 );
 
+applyTransport(app);
+
 app.use(
-    express.json()
+    express.json({
+        // Imports of a whole class list can exceed the 100 kB default.
+        limit: "5mb",
+    })
 );
 
 app.use(
@@ -92,6 +113,39 @@ app.use(
     "/api/participants",
     participantsRouter
 );
+
+
+app.get("/api/public-settings", (req, res) => {
+    try {
+        const settings = loadSettings();
+
+        const numPreferences = clampPreferenceCount(
+            settings?.numPreferences,
+            3
+        );
+
+        console.log(
+            "Public settings requested:",
+            {
+                numPreferences,
+            }
+        );
+
+        res.json({
+            numPreferences,
+        });
+    } catch (error) {
+        console.error(
+            "Failed to load public settings:",
+            error
+        );
+
+        res.status(500).json({
+            message:
+                "Failed to load settings",
+        });
+    }
+});
 
 /*
  * --------------------------------------------------------------------------
@@ -149,6 +203,7 @@ app.get(
 
 app.get(
     "/api/config/check-port",
+    localOnly,
     (req, res) => {
         const port =
             Number.parseInt(
@@ -234,6 +289,32 @@ app.get(
  * --------------------------------------------------------------------------
  */
 
+/*
+ * The address for the QR code and for Bonjour: the organiser's choice from the
+ * settings, otherwise the best real LAN address.
+ */
+function advertisedAddress() {
+    try {
+        return (
+            pickAddress(
+                listNetworkCandidates(),
+                loadSettings()?.networkAddress
+            )?.address ?? null
+        );
+    } catch {
+        return null;
+    }
+}
+
+/*
+ * Announce again, e.g. after the organiser picked another network.
+ */
+export function refreshBonjour() {
+    if (publishedService) {
+        startBonjour(currentPort);
+    }
+}
+
 function startBonjour(port) {
     try {
         stopBonjour();
@@ -242,19 +323,20 @@ function startBonjour(port) {
             new Bonjour();
 
         publishedService =
-            bonjourInstance.publish(
-                {
-                    name:
-                        "Semera Workshops",
-
-                    type: "http",
-
-                    port,
-                }
+            publishWorkshopService(
+                bonjourInstance,
+                port,
+                advertisedAddress
             );
 
         console.log(
             `Bonjour service published on port ${port}`
+        );
+
+        // Re-announce when the PC's network address changes.
+        stopAddressWatch = watchAddress(
+            advertisedAddress,
+            () => startBonjour(currentPort)
         );
     } catch (err) {
         publishedService =
@@ -272,6 +354,11 @@ function startBonjour(port) {
 
 function stopBonjour() {
     try {
+        if (stopAddressWatch) {
+            stopAddressWatch();
+            stopAddressWatch = null;
+        }
+
         if (
             publishedService
         ) {
@@ -323,6 +410,7 @@ function stopBonjour() {
 
 app.post(
     "/api/bonjour/toggle",
+    localOnly,
     (req, res) => {
         const enable =
             req.body?.enable ??
@@ -363,6 +451,7 @@ app.post(
 
 app.get(
     "/api/bonjour/verify",
+    localOnly,
     async (_req, res) => {
         let verifyBonjour =
             null;
@@ -471,7 +560,7 @@ const rendererPath =
     );
 
 app.use(
-    express.static(
+    rendererStatic(
         rendererPath
     )
 );
@@ -509,6 +598,7 @@ app.get(
 
         res.sendFile(
             adminFile,
+            { headers: NO_CACHE_HEADERS },
             err => {
                 if (err) {
                     next(err);
@@ -546,6 +636,7 @@ app.use(
 
         res.sendFile(
             indexFile,
+            { headers: NO_CACHE_HEADERS },
             err => {
                 if (err) {
                     next(err);
