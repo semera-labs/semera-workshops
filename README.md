@@ -18,6 +18,18 @@
 **Semera Workshops** is a cross-platform desktop application (built with **Electron + React + Express + SQLite**) for collecting participant submissions and allocating workshops at seminars, camps, and events.
 It is designed for **offline, LAN-based use** (no internet required). Participants can submit their preferences via a local web form on their phones, while organizers can manage, allocate, and export workshop assignments through the admin interface.
 
+## 🆕 What's new in 2.0.0
+
+* **Allocation:** greedy allocator rewritten (validation, seed, up to 200 runs, structured issues, statistics); nobody is placed in a random workshop any more, people without a free wish stay open and can be assigned by hand.
+* **Up to 7 days and 7 preferences**, configurable in the settings; multi-day tables show a small day number in the green cells.
+* **Manual assignment per day** via right-click (*Anderen Workshop zuweisen* → day), also without an existing allocation.
+* **Evaluation panel** next to the table (collapsible) with choice distribution, unassigned people, free seats and workshop occupancy.
+* **Excel / CSV / JSON import** with a column-mapping dialog, Excel export for every data set and *Alles als Excel exportieren*; the allocation report can be saved as Excel as well.
+* **Phone access hardened:** `semera.local`, network adapter picker in the QR dialog, lazy-loaded admin UI, gzip, resilient form.
+* **Admin routes are local-only** and imports are all-or-nothing.
+* **License:** PolyForm Noncommercial 1.0.0 plus an additional permission for non-profit organizations.
+* **Manual** rewritten for all of the above (`manual.tex` / `manual.pdf`), including the Mac "app is damaged" fix and router / fixed-IP advice.
+
 ## ✨ Features
 
 * **Participant Submission Form**
@@ -107,7 +119,8 @@ Exports use the same headers, so every export can be imported again (also useful
 - [ ] Theming
 - [ ] Fix Single/Multi-Day File generation (returned warnings messes with the data parsing)
 - [ ] Auto Refresh on new Submission
-- [ ] Extend Manual to explain things more in depth (`manual.tex` is up to date, `manual.docx` / `manual.pdf` still have to be regenerated; screenshots of menus, QR dialog and settings need to be retaken)
+- [x] Update the manual for 2.0.0 (`manual.tex` / `manual.pdf` with retaken screenshots; `manual.docx` is no longer maintained and is outdated)
+- [ ] Signed macOS build (until then the unsigned app triggers the "app is damaged" message, see the manual)
 - [x] Display Staff Member and How many slots are full and location in the allocation report/ toggle this via the settings
 - [x] Display how many first, second, third choices were selected (evaluation panel)
 - [ ] Allow for multiple allocation algorithms via settings (the number of runs is configurable; the algorithm itself is greedy by design)
@@ -136,10 +149,11 @@ semera-workshops/
 │   ├── models/          # Sequelize models (Submissions, Workshops, Participants)
 │   ├── renderer/        # React frontend (AdminView, IndexView = phone form)
 │   └── server/          # Express API (preferences, workshops, participants), Bonjour, transport
-├── dist/                # Build output
+├── dist/                # Build output: dist/renderer (web build) and the packaged apps
 ├── public/              # Icon
-├── manual.docx / .pdf   # Project manual (Word / shipped PDF)
-├── manual.tex           # Same manual as LaTeX source, images in manual_images/
+├── manual.pdf           # Manual as shipped with the app (compiled from manual.tex)
+├── manual.tex           # Manual source (LaTeX), images in manual_images/
+├── manual.docx          # Old Word version of the manual (outdated)
 ├── LICENSE              # PolyForm Noncommercial License 1.0.0
 ├── ADDITIONAL-PERMISSION.md  # Extra permission for non-profit organizations
 ├── package.json         # Dependencies and electron-builder config
@@ -181,14 +195,23 @@ Lint with `npm run lint`.
 npm run build
 ```
 
-* Produces a **portable `.exe`** under `dist/win-unpacked`.
+* Runs `vite build` (into `dist/renderer`) and then electron-builder.
+* Produces the **portable `dist/Semera-Workshops-2.0.0.exe`** (the unpacked app is in `dist/win-unpacked`).
+* Only `dist/renderer` is packaged from `dist/`. Do not put it back to `dist/**/*`: older builds in `dist/` would be packed into the app and the NSIS packer fails once it grows to several GB.
+* `manual.pdf` must exist in the project root before building, it is copied into the app (`extraResources`).
+* Do not run two builds at the same time and delete `dist/win-unpacked` if a build was aborted.
 * The renderer is split: the phone form (~270 KB, ~90 KB gzipped) is the main chunk, the admin UI (several MB) is loaded only on `/admin`.
+
+### macOS
+
+* Has to be built on a Mac: `npx electron-builder --mac` (after `npm run build:react`). Output is the `.app` as `Semera-Workshops-2.0.0-mac.zip`.
+* The build is **not signed or notarized yet**. macOS then reports "app is damaged"; the workaround (`xattr -d com.apple.quarantine`) is described in the manual. A signed build is planned.
 
 ## 📖 Manual
 
-* Written in `manual.docx` (and mirrored in `manual.tex`, compile with `pdflatex manual.tex` twice).
-* Compiled into **manual.pdf**.
-* Shipped with the app and accessible via **Hilfe → Handbuch (PDF)**.
+* Source is `manual.tex` (German); compile with `pdflatex manual.tex` or `xelatex manual.tex`, twice so the table of contents and references are right. Images are in `manual_images/`.
+* The result, **manual.pdf**, is shipped with the app and opened via **Hilfe → Handbuch (PDF)**.
+* `manual.docx` is the old Word version and is not maintained any more.
 
 ## 🔒 Notes on Networking
 
