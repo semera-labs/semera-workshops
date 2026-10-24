@@ -9,7 +9,7 @@
     "name": "Jan Schulz-Nigmann"
   },
   "homepage": "https://github.com/TieHaxJan/semera-workshops",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "scripts": {
     "dev": "cross-env NODE_ENV=development concurrently \"vite --config vite.config.js\" \"wait-on http://localhost:5173 && electron .\"",
     "lint": "eslint .",

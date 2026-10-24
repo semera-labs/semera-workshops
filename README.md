@@ -6,7 +6,7 @@
 
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](./package.json)
-[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](./LICENSE)
+[![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-orange.svg)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey.svg)](./README.md)
 [![Made with Electron](https://img.shields.io/badge/made%20with-Electron-2c3e50.svg?logo=electron)](https://electronjs.org)
 [![Made with React](https://img.shields.io/badge/frontend-React-61dafb.svg?logo=react)](https://react.dev)
@@ -117,7 +117,7 @@ Exports use the same headers, so every export can be imported again (also useful
 - [ ] Remote Update/ Patch
 - [ ] Future Buddy-Feature
 - [ ] Verify older phones: the build targets Safari 16 / Chrome 107 (Vite default), older iOS versions may not show the form
-- [ ] Add the `LICENSE` file the badge links to
+- [x] Add the `LICENSE` file the badge links to
 
 ## 📦 Project Structure
 
@@ -140,6 +140,8 @@ semera-workshops/
 ├── public/              # Icon
 ├── manual.docx / .pdf   # Project manual (Word / shipped PDF)
 ├── manual.tex           # Same manual as LaTeX source, images in manual_images/
+├── LICENSE              # PolyForm Noncommercial License 1.0.0
+├── ADDITIONAL-PERMISSION.md  # Extra permission for non-profit organizations
 ├── package.json         # Dependencies and electron-builder config
 └── README.md            # This file
 ```
@@ -205,8 +207,25 @@ npm run build
 
 Static files are served gzip-compressed; files in `/assets` are cached for a year (they are hashed), `index.html` and all `/api` answers are never cached.
 
+## 📄 License
+
+Semera Workshops is source-available under the **[PolyForm Noncommercial License 1.0.0](./LICENSE)**
+(<https://polyformproject.org/licenses/noncommercial/1.0.0>):
+
+* **Allowed:** any noncommercial purpose (personal use, hobby projects, research, study), and use by charitable
+  organizations, educational institutions, public research organizations, public safety or health organizations,
+  environmental protection organizations and government institutions.
+* **Non-profit organizations** (associations, clubs, youth, sports, school and parent groups, church and community
+  groups, camps, foundations – registered or not, with or without participant fees) may use it as well, see
+  [ADDITIONAL-PERMISSION.md](./ADDITIONAL-PERMISSION.md).
+* **Not allowed without a separate license:** use by or for for-profit companies and other commercial use.
+* If you distribute the software or a modified version, keep the `LICENSE` text (or its URL) and the
+  `Required Notice:` line with it.
+
+Third-party libraries keep their own licenses (mostly MIT).
+
 ## 👤 Author
 
 * **Jan Schulz-Nigmann / Semera**
 * Email: [you@example.com](mailto:you@example.com)
-* License: MIT
+* License: [PolyForm Noncommercial 1.0.0](./LICENSE) + [additional permission for non-profit organizations](./ADDITIONAL-PERMISSION.md)
