@@ -24,7 +24,7 @@
     "appId": "com.semera.workshops",
     "productName": "Semera Workshops",
     "files": [
-      "dist/**/*",
+      "dist/renderer/**/*",
       "src/main/**/*",
       "src/server/**/*",
       "src/lib/**/*",
